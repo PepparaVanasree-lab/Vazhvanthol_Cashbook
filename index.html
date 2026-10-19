@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="ml">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vazhvanthol Eco Tourism Cash Book</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Anek+Malayalam:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <!-- Online/Offline Status Indicator REMOVED -->
+
+  <!-- Login Screen -->
+  <div class="container" id="login-screen" style="margin-top: 10px;">
+    <h2>ലോഗിൻ (Login)</h2>
+
+    <form id="login-form" autocomplete="on">
+      <div class="form-group">
+        <label for="username">Username:</label>
+        <input type="text" id="username" placeholder="Enter username (admin / secretary)" autocomplete="username" required>
+      </div>
+
+      <div class="form-group">
+        <label for="password">Password:</label>
+        <input type="password" id="password" placeholder="Enter password" autocomplete="current-password" required>
+      </div>
+
+      <div class="form-group remember-row">
+        <label class="remember-label" for="remember-me">
+          <input type="checkbox" id="remember-me"> Remember Me
+        </label>
+        <a href="javascript:void(0)" onclick="showResetPassword()" class="link">Forgot Password?</a>
+      </div>
+
+      <button type="submit">Login</button>
+    </form>
+
+    <p class="error-text" id="login-error">തെറ്റായ യൂസർനെയിം അല്ലെങ്കിൽ പാസ്‌വേഡ്!</p>
+
+    <!-- Password Reset Section -->
+    <div id="reset-section" class="reset-section">
+      <h4 class="reset-title">Reset Password</h4>
+      <input type="text" id="reset-username" placeholder="Enter your Username" autocomplete="username">
+      <input type="password" id="new-password" placeholder="Enter New Password" autocomplete="new-password">
+      <button type="button" onclick="resetPassword()" class="btn-reset">Reset Password</button>
+      <p id="reset-msg" class="reset-msg"></p>
+    </div>
+  </div>
+
+  <!-- Main App Screen -->
+  <div class="container" id="app-screen">
+    <div class="app-head no-print">
+      <div>
+        <h2 class="app-title">Vazhvanthol Eco Tourism</h2>
+        <h3 class="app-subtitle">Daily Collection Details</h3>
+      </div>
+      <button type="button" class="btn-logout" onclick="logout()">Logout</button>
+    </div>
+
+    <!-- Edit Mode Banner -->
+    <div id="edit-banner" class="edit-banner no-print" style="display:none;">
+      <div>
+        <div class="edit-title">Edit Mode Enabled</div>
+        <div class="edit-sub">Editing record: <span id="edit-banner-date">-</span></div>
+      </div>
+      <div class="edit-actions">
+        <button type="button" class="btn-small btn-grey" onclick="cancelEdit()">Cancel Edit</button>
+        <button type="button" class="btn-small btn-print" onclick="switchTab('cashbook')">Go to Save/Update</button>
+      </div>
+    </div>
+
+    <!-- 5 Tabs -->
+    <div class="tabs no-print">
+      <div class="tab active" id="tab-package" onclick="switchTab('package')">1. Package Entry</div>
+      <div class="tab" id="tab-payment" onclick="switchTab('payment')">2. Payment Details</div>
+      <div class="tab" id="tab-cashbook" onclick="switchTab('cashbook')">3. Cash Book</div>
+
+      <!-- SWAPPED: Tab 4 is now History, Tab 5 is now Abstract (classes/structure unchanged) -->
+      <div class="tab" id="tab-history" onclick="switchTab('history')">4. History & Records</div>
+      <div class="tab" id="tab-abstract" onclick="switchTab('abstract')">5. Monthly Abstract</div>
+    </div>
+
+    <form id="cashbook-form">
+      <!-- TAB 1 -->
+      <div id="content-package" class="tab-content active">
+        <div class="grid-2">
+          <div class="form-group">
+            <label for="date">Date (തീയതി)</label>
+            <input type="date" id="date" required onchange="calculateFees()">
+
+            <div class="holiday-box">
+              <input type="checkbox" id="is-holiday" onchange="calculateFees()">
+              <label for="is-holiday" class="holiday-label">മറ്റ് പൊതു അവധി ദിവസമാണോ?</label>
+            </div>
+
+            <small class="small-note">ശനി, ഞായർ ദിവസങ്ങൾ സിസ്റ്റം തനിയെ തിരിച്ചറിയും.</small>
+          </div>
+
+          <div class="form-group">
+            <label for="nationality">Nationality (വിഭാഗം)</label>
+            <select id="nationality" onchange="calculateFees()">
+              <option value="indian">Indian (ഇന്ത്യൻ)</option>
+              <option value="foreigner">Foreigner (വിദേശി)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="section-title">Packages Entry (പാക്കേജുകളുടെ എണ്ണം)</div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label for="pkg-5-count">5-Member Packages</label>
+            <input type="number" id="pkg-5-count" min="0" step="1" inputmode="numeric" value="0" oninput="calculateFees()">
+          </div>
+          <div class="form-group">
+            <label for="pkg-10-count">10-Member Packages</label>
+            <input type="number" id="pkg-10-count" min="0" step="1" inputmode="numeric" value="0" oninput="calculateFees()">
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="form-group">
+            <label for="extra-persons">Extra Persons (അധികമുള്ളവർ)</label>
+            <input type="number" id="extra-persons" min="0" step="1" inputmode="numeric" value="0" oninput="calculateFees()">
+          </div>
+          <div class="form-group">
+            <label for="children">Children Under 14 (സൗജന്യം)</label>
+            <input type="number" id="children" min="0" step="1" inputmode="numeric" value="0">
+          </div>
+        </div>
+
+        <div class="section-title">Auto Calculated Fees (₹)</div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label for="calc-income">Total Income (വരുമാനം)</label>
+            <input type="number" id="calc-income" class="readonly-field" readonly>
+          </div>
+          <div class="form-group">
+            <label for="calc-guide">Total Guide Fee</label>
+            <input type="number" id="calc-guide" class="readonly-field" readonly>
+          </div>
+        </div>
+
+        <div class="grid-3">
+          <div class="form-group">
+            <label for="calc-rr">Sanctuary Entrance (Rr)</label>
+            <input type="number" id="calc-rr" class="readonly-field" readonly>
+          </div>
+          <div class="form-group">
+            <label for="calc-edc">EDC Share</label>
+            <input type="number" id="calc-edc" class="readonly-field" readonly>
+          </div>
+          <div class="form-group">
+            <label for="calc-emf">EMF</label>
+            <input type="number" id="calc-emf" class="readonly-field" readonly>
+          </div>
+        </div>
+
+        <!-- NEW: Save button in Tab 1 + Next button side-by-side -->
+        <div class="grid-2 no-print">
+          <button type="button" class="btn-save" id="btn-save-db-tab1" onclick="saveToDatabase('package')">Save to Database</button>
+          <button type="button" onclick="switchTab('payment')">Next: Payment Details &raquo;</button>
+        </div>
+
+        <!-- NEW: Message placeholder for Tab 1 saves -->
+        <p id="pkg-msg" class="db-msg no-print"></p>
+        <div class="developer-credit no-print">
+  Designed & Developed by <span class="dev-name">MITHUN C NAIR</span>
+</div>
+      </div>
+
+      <!-- TAB 2 -->
+      <div id="content-payment" class="tab-content">
+        <div class="payment-summary">
+          <h4>Date: <span id="display-payment-date">-</span></h4>
+          <h3>Expected Total Income: ₹<span id="display-total-income">0</span></h3>
+          <p>ഈ തുക താഴെ പറയുന്ന രീതികളിൽ എങ്ങനെയൊക്കെ ലഭിച്ചു എന്ന് രേഖപ്പെടുത്തുക.</p>
+        </div>
+
+        <div class="section-title">Payment Received Through</div>
+        <div class="grid-3">
+          <div class="form-group">
+            <label for="pay-epos">EPOS Amount (₹)</label>
+            <input type="number" id="pay-epos" min="0" step="1" inputmode="numeric" value="0">
+          </div>
+          <div class="form-group">
+            <label for="pay-upi">UPI Amount (₹)</label>
+            <input type="number" id="pay-upi" min="0" step="1" inputmode="numeric" value="0">
+          </div>
+          <div class="form-group">
+            <label for="pay-cash">Cash Amount (₹)</label>
+            <input type="number" id="pay-cash" min="0" step="1" inputmode="numeric" value="0">
+          </div>
+        </div>
+
+        <div class="section-title">Bank Remittance & Remarks</div>
+        <div class="form-group">
+          <label for="bank-remit">Amount Remitted to Bank (₹)</label>
+          <input type="number" id="bank-remit" min="0" step="1" inputmode="numeric" value="0">
+        </div>
+        <div class="form-group">
+          <label for="remarks">Remarks / Notes</label>
+          <input type="text" id="remarks" placeholder="Enter remarks if any">
+        </div>
+
+        <div class="grid-2">
+          <button type="button" class="btn-grey" onclick="switchTab('package')">&laquo; Back to Package</button>
+          <button type="button" onclick="switchTab('cashbook')">Next: View Cash Book &raquo;</button>
+        </div>
+      </div>
+
+      <!-- TAB 3 -->
+      <div id="content-cashbook" class="tab-content">
+        <div class="preview-container" id="print-section"></div>
+
+        <p id="db-msg" class="db-msg no-print"></p>
+
+        <div class="action-buttons no-print">
+          <button type="button" class="btn-grey" onclick="switchTab('payment')">&laquo; Back to Payment</button>
+          <button type="button" class="btn-print" onclick="window.print()">Print Preview / PDF Print</button>
+          <button type="button" class="btn-save" id="btn-save-db" onclick="saveToDatabase('cashbook')">Save to Database</button>
+        </div>
+      </div>
+
+      <!-- TAB 4: HISTORY (moved before abstract; internal structure unchanged) -->
+      <div id="content-history" class="tab-content">
+        <div class="history-head no-print">
+          <div>
+            <h3 class="history-title">History & Records</h3>
+            <p class="history-sub">Firestore collection: <b>daily_collections</b></p>
+          </div>
+          <div class="history-actions">
+            <button type="button" class="btn-small btn-grey" onclick="refreshHistory()">Refresh</button>
+          </div>
+        </div>
+
+        <div class="history-controls no-print">
+          <div class="history-control">
+            <label for="history-search-date">Search by Date</label>
+            <input type="date" id="history-search-date">
+          </div>
+
+          <div class="history-control">
+            <label for="history-filter-nat">Nationality</label>
+            <select id="history-filter-nat">
+              <option value="all" selected>All</option>
+              <option value="indian">Indian</option>
+              <option value="foreigner">Foreigner</option>
+            </select>
+          </div>
+
+          <div class="history-control history-control-actions">
+            <label>&nbsp;</label>
+            <div class="history-btn-row">
+              <button type="button" class="btn-small btn-grey" id="btn-clear-history">Clear</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="history-status" class="history-status muted"></div>
+
+        <div class="table-wrap">
+          <table class="history-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Nationality</th>
+                <th>Total Income</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="history-tbody">
+              <tr><td colspan="4" class="muted">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p class="history-note muted">
+          You can save up to <b>two records per date</b> (Indian + Foreigner). Saving the same nationality again on the same date will overwrite that record.
+        </p>
+      </div>
+
+      <!-- TAB 5: MONTHLY ABSTRACT -->
+      <div id="content-abstract" class="tab-content">
+        <div class="form-group no-print abstract-controls">
+          <label for="fy-select">സാമ്പത്തിക വർഷം (Financial Year):</label>
+          <select id="fy-select" onchange="generateAbstract()">
+            <option value="2025-26">2025-26</option>
+            <option value="2026-27" selected>2026-27</option>
+            <option value="2027-28">2027-28</option>
+          </select>
+        </div>
+
+        <div class="preview-container">
+          <table class="abstract-report-table" id="abstract-table">
+            <thead>
+              <tr>
+                <th colspan="8" id="abstract-title">Pepara Wildlife Sanctuary (Vazhvanthol Waterfalls Visit)</th>
+              </tr>
+              <tr>
+                <th rowspan="2">Month</th>
+                <th rowspan="2">Revenue Collected<br>(Including SF)</th>
+                <th rowspan="2">Sanctuary<br>Fee</th>
+                <th colspan="4">No. of visitors</th>
+                <th rowspan="2">Total Visitors</th>
+              </tr>
+              <tr>
+                <th>Indian Adults</th>
+                <th>Indian Children<br><span class="free-pass">(Free Pass)</span></th>
+                <th>Foreign Adults</th>
+                <th>Foreign Children</th>
+              </tr>
+            </thead>
+            <tbody id="abstract-tbody"></tbody>
+            <tfoot id="abstract-tfoot"></tfoot>
+          </table>
+        </div>
+
+        <div class="action-buttons no-print">
+          <button type="button" class="btn-print" onclick="window.print()">Print Abstract / PDF</button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- Firebase v9 compat -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+  <script src="script.js"></script>
+</body>
+</html>
