@@ -429,3 +429,14 @@ button:hover { background-color: #1b5e20; }
     position: absolute !important;
     right: 20px !important;
 }
+/* Mobile Responsive Fix for Header */
+@media (max-width: 600px) {
+    .app-head {
+        flex-direction: column !important;
+        padding-bottom: 15px !important;
+    }
+    .btn-logout {
+        position: static !important;
+        margin-top: 10px !important;
+    }
+}
