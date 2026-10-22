@@ -57,10 +57,14 @@
          HOME DASHBOARD (NEW)
     ========================================== -->
     <div id="home-dashboard" class="no-print">
-      <div class="top-action-bar">
-        <button type="button" class="btn-logout-new" onclick="logout()">Logout</button>
-        <button type="button" class="btn-warning" onclick="changePassword()">Change Password</button>
-      </div>
+      <div class="top-action-bar no-print">
+  <button type="button" class="btn-logout-new" onclick="logout()">Logout</button>
+  <button type="button" class="btn-warning" onclick="changePassword()">Change Password</button>
+
+  <div class="status-slot">
+    <span class="status-badge online" id="statusBadge">Online</span>
+  </div>
+</div>
 
       <div class="text-center">
         <h2 class="app-title">Vazhvanthol Eco Tourism</h2>

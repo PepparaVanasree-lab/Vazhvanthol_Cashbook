@@ -2,13 +2,12 @@
  * Vazhvanthol Eco Tourism Cash Book
  * Update:
  * 1) Strict upsert docId = `${dateVal}_${nationality}`
- * 2) Save button added on Tab 1 (Package Entry)
- *    - saveToDatabase('package') shows message on Tab 1
- *    - saveToDatabase('cashbook') shows message on Tab 3
- * 3) Home Dashboard navigation (openMenu/goHome) FIXED:
- *    - Maintains .active class for print + beforeprint logic
- *    - Calls preparePrintData / generateAbstract / renderHistoryTable when needed
- *    - Adds missing changePassword()
+ * 2) Save button added on Package Entry + Cashbook
+ * 3) Home Dashboard navigation (openMenu/goHome) FIXED
+ * 4) AUTO-LOGIN (Remember Me):
+ *    - If user logs in with Remember Me checked, next visit bypasses login screen
+ *    - Auto-login stays active until user clicks Logout
+ *    - Password is NOT stored in localStorage
  **************************************************************/
 
 /* ---------------------------
@@ -38,7 +37,7 @@ const DEFAULT_USERS = {
 };
 
 let users = loadUsers();
-let currentUser = null; // NEW: track logged-in user for Change Password
+let currentUser = null; // track logged-in user for Change Password + auto-login session
 
 /* ---------------------------
    EDIT MODE STATE
@@ -53,10 +52,13 @@ let historyCache = new Map(); // docId -> data (with _id)
 window.onload = function () {
   initFirebase();
 
+  // Pre-fill username + remember checkbox
   const remembered = loadRemembered();
   if (remembered?.username) {
-    document.getElementById("username").value = remembered.username;
-    document.getElementById("remember-me").checked = true;
+    const uEl = document.getElementById("username");
+    const rEl = document.getElementById("remember-me");
+    if (uEl) uEl.value = remembered.username;
+    if (rEl) rEl.checked = true;
   }
 
   document.getElementById("login-form").addEventListener("submit", (e) => {
@@ -98,8 +100,21 @@ window.onload = function () {
     if (active === "content-abstract") generateAbstract();
   });
 
-  // When the page loads (before login), keep dashboard state clean (app-screen is hidden anyway)
+  // Keep dashboard state clean (app-screen is hidden anyway until login)
   goHome();
+
+  // AUTO-LOGIN: bypass login screen if remembered session exists
+  if (remembered?.username) {
+    const shouldAutoLogin = (remembered.autoLogin !== false); // backwards compatible default true
+    const userStillExists = !!users[remembered.username];
+
+    if (shouldAutoLogin && userStillExists) {
+      autoLoginUser(remembered.username);
+    } else if (shouldAutoLogin && !userStillExists) {
+      // remembered user no longer exists in local users store
+      clearRemembered();
+    }
+  }
 };
 
 function initFirebase() {
@@ -168,20 +183,33 @@ function loadUsers() {
     return { ...DEFAULT_USERS };
   }
 }
+
 function saveUsers() {
   localStorage.setItem(USERS_LS_KEY, JSON.stringify(users));
 }
+
 function loadRemembered() {
   try {
     const raw = localStorage.getItem(REMEMBER_LS_KEY);
-    return raw ? JSON.parse(raw) : null;
+    if (!raw) return null;
+
+    const obj = JSON.parse(raw);
+    if (!obj?.username) return null;
+
+    // Backward compatibility: old format was { username }
+    if (typeof obj.autoLogin === "undefined") obj.autoLogin = true;
+
+    return obj;
   } catch {
     return null;
   }
 }
+
 function saveRemembered(username) {
-  localStorage.setItem(REMEMBER_LS_KEY, JSON.stringify({ username }));
+  // auto-login session (password NOT stored)
+  localStorage.setItem(REMEMBER_LS_KEY, JSON.stringify({ username, autoLogin: true }));
 }
+
 function clearRemembered() {
   localStorage.removeItem(REMEMBER_LS_KEY);
 }
@@ -189,6 +217,22 @@ function clearRemembered() {
 /* ---------------------------
    AUTH
 ---------------------------- */
+function autoLoginUser(username) {
+  currentUser = username;
+
+  document.getElementById("login-error").style.display = "none";
+  document.getElementById("reset-section").style.display = "none";
+
+  document.getElementById("login-screen").style.display = "none";
+  document.getElementById("app-screen").style.display = "block";
+
+  document.getElementById("date").valueAsDate = new Date();
+  calculateFees();
+
+  goHome();
+  startHistoryListener();
+}
+
 function login() {
   const user = document.getElementById("username").value.trim();
   const pass = document.getElementById("password").value.trim();
@@ -209,7 +253,7 @@ function login() {
     document.getElementById("date").valueAsDate = new Date();
     calculateFees();
 
-    // IMPORTANT: show dashboard first (new UI)
+    // Show dashboard first (new UI)
     goHome();
 
     startHistoryListener();
@@ -219,6 +263,9 @@ function login() {
 }
 
 function logout() {
+  // IMPORTANT: stops auto-login until user logs in again with Remember Me
+  clearRemembered();
+
   currentUser = null;
 
   document.getElementById("app-screen").style.display = "none";
@@ -270,7 +317,7 @@ function resetPassword() {
   }
 }
 
-/* NEW: Change password while logged-in (from dashboard button) */
+/* Change password while logged-in (from dashboard button) */
 function changePassword() {
   if (!currentUser) {
     alert("Not logged in.");
@@ -374,7 +421,6 @@ function calculateFees() {
    TAB 3: PRINT PREVIEW
 ---------------------------- */
 function preparePrintData() {
-  // ensure calculation fields are current
   calculateFees();
 
   const dateVal = document.getElementById("date").value;
@@ -496,7 +542,6 @@ async function saveToDatabase(source = "cashbook") {
     }
 
     const isHolidayChecked = document.getElementById("is-holiday").checked;
-    const isWeekend = (dateObj.getDay() === 0 || dateObj.getDay() === 6);
 
     const income = Number(document.getElementById("calc-income").value || 0);
     const guideFee = Number(document.getElementById("calc-guide").value || 0);
@@ -521,7 +566,7 @@ async function saveToDatabase(source = "cashbook") {
       extraPersons,
       children,
 
-      isWeekend,
+      isWeekend: (dateObj.getDay() === 0 || dateObj.getDay() === 6),
       isPublicHoliday: isHolidayChecked,
 
       income,
@@ -766,7 +811,7 @@ function cancelEdit(silent = false) {
 }
 
 /* ---------------------------
-   TAB 5: MONTHLY ABSTRACT
+   MONTHLY ABSTRACT
 ---------------------------- */
 function generateAbstract() {
   const fy = document.getElementById("fy-select").value;
@@ -883,16 +928,13 @@ function generateAbstract() {
 /* ==========================================
    HOME DASHBOARD NAVIGATION LOGIC (FIXED)
    - Updates .active (required for print CSS)
-   - Hides legacy .tabs bar
 ========================================== */
 function openMenu(sectionId) {
   const dashboard = document.getElementById("home-dashboard");
   const backBar = document.getElementById("back-bar");
-  const tabsBar = document.querySelector(".tabs");
 
   if (dashboard) dashboard.style.display = "none";
   if (backBar) backBar.style.display = "block";
-  if (tabsBar) tabsBar.style.display = "none";
 
   // Hide all sections and clear active state
   document.querySelectorAll(".tab-content").forEach(content => {
@@ -918,13 +960,11 @@ function openMenu(sectionId) {
 function goHome() {
   const dashboard = document.getElementById("home-dashboard");
   const backBar = document.getElementById("back-bar");
-  const tabsBar = document.querySelector(".tabs");
 
   if (dashboard) dashboard.style.display = "block";
   if (backBar) backBar.style.display = "none";
-  if (tabsBar) tabsBar.style.display = "none";
 
-  // Hide all sections and clear active state (so print doesn't print a wrong section)
+  // Hide all sections and clear active state
   document.querySelectorAll(".tab-content").forEach(content => {
     content.classList.remove("active");
     content.style.display = "none";
@@ -933,7 +973,7 @@ function goHome() {
   window.scrollTo(0, 0);
 }
 
-// Keep old "Next" buttons and legacy tab onclicks working
+// Keep old "Next" buttons working
 function switchTab(tabName) {
   openMenu("content-" + tabName);
 }
