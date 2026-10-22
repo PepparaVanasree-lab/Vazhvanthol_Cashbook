@@ -5,6 +5,10 @@
  * 2) Save button added on Tab 1 (Package Entry)
  *    - saveToDatabase('package') shows message on Tab 1
  *    - saveToDatabase('cashbook') shows message on Tab 3
+ * 3) Home Dashboard navigation (openMenu/goHome) FIXED:
+ *    - Maintains .active class for print + beforeprint logic
+ *    - Calls preparePrintData / generateAbstract / renderHistoryTable when needed
+ *    - Adds missing changePassword()
  **************************************************************/
 
 /* ---------------------------
@@ -34,6 +38,7 @@ const DEFAULT_USERS = {
 };
 
 let users = loadUsers();
+let currentUser = null; // NEW: track logged-in user for Change Password
 
 /* ---------------------------
    EDIT MODE STATE
@@ -46,8 +51,6 @@ let historyCache = new Map(); // docId -> data (with _id)
    INIT
 ---------------------------- */
 window.onload = function () {
-  // Online/Offline status removed (no status bar in HTML)
-
   initFirebase();
 
   const remembered = loadRemembered();
@@ -88,12 +91,15 @@ window.onload = function () {
     renderHistoryTable();
   });
 
-  // Keep print preview up-to-date
+  // Keep print preview up-to-date (this REQUIRES correct .active class)
   window.addEventListener("beforeprint", () => {
     const active = document.querySelector(".tab-content.active")?.id;
     if (active === "content-cashbook") preparePrintData();
     if (active === "content-abstract") generateAbstract();
   });
+
+  // When the page loads (before login), keep dashboard state clean (app-screen is hidden anyway)
+  goHome();
 };
 
 function initFirebase() {
@@ -117,7 +123,6 @@ function initFirebase() {
    SMALL UI HELPERS
 ---------------------------- */
 function getMsgEl(source) {
-  // source: 'package' | 'cashbook'
   if (source === "package") return document.getElementById("pkg-msg");
   return document.getElementById("db-msg");
 }
@@ -144,7 +149,6 @@ function setSavingUI(isSaving, label) {
   [btnTab1, btnTab3].forEach(btn => {
     if (!btn) return;
     btn.disabled = isSaving;
-    // only change text if saving, otherwise handled by updateSaveButtonLabel()
     if (isSaving && label) btn.textContent = label;
   });
 
@@ -191,6 +195,8 @@ function login() {
   const remember = document.getElementById("remember-me").checked;
 
   if (users[user] && users[user] === pass) {
+    currentUser = user;
+
     if (remember) saveRemembered(user);
     else clearRemembered();
 
@@ -202,7 +208,9 @@ function login() {
 
     document.getElementById("date").valueAsDate = new Date();
     calculateFees();
-    switchTab("package");
+
+    // IMPORTANT: show dashboard first (new UI)
+    goHome();
 
     startHistoryListener();
   } else {
@@ -211,12 +219,17 @@ function login() {
 }
 
 function logout() {
+  currentUser = null;
+
   document.getElementById("app-screen").style.display = "none";
   document.getElementById("login-screen").style.display = "block";
   document.getElementById("password").value = "";
 
   stopHistoryListener();
   cancelEdit(true);
+
+  // reset dashboard state
+  goHome();
 }
 
 function showResetPassword() {
@@ -257,23 +270,24 @@ function resetPassword() {
   }
 }
 
-/* ---------------------------
-   TABS
----------------------------- */
-function switchTab(tabName) {
-  document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
-  document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
+/* NEW: Change password while logged-in (from dashboard button) */
+function changePassword() {
+  if (!currentUser) {
+    alert("Not logged in.");
+    return;
+  }
 
-  const tab = document.getElementById(`tab-${tabName}`);
-  const content = document.getElementById(`content-${tabName}`);
-  if (!tab || !content) return;
+  const newPass = prompt(`Change Password for "${currentUser}"\nEnter new password (min 3 chars):`, "");
+  if (newPass === null) return; // cancelled
+  const p = (newPass || "").trim();
+  if (p.length < 3) {
+    alert("Password must be at least 3 characters.");
+    return;
+  }
 
-  tab.classList.add("active");
-  content.classList.add("active");
-
-  if (tabName === "cashbook") preparePrintData();
-  if (tabName === "abstract") generateAbstract();
-  if (tabName === "history") renderHistoryTable();
+  users[currentUser] = p;
+  saveUsers();
+  alert("Password updated successfully.");
 }
 
 /* ---------------------------
@@ -360,6 +374,9 @@ function calculateFees() {
    TAB 3: PRINT PREVIEW
 ---------------------------- */
 function preparePrintData() {
+  // ensure calculation fields are current
+  calculateFees();
+
   const dateVal = document.getElementById("date").value;
   const dateObj = parseLocalYMD(dateVal);
 
@@ -446,8 +463,6 @@ function preparePrintData() {
 
 /* ---------------------------
    SAVE / UPDATE (STRICT UPSERT)
-   - ALWAYS writes to docId = `${dateVal}_${nationality}`
-   - No addDoc path exists => no new duplicates from this code
 ---------------------------- */
 async function saveToDatabase(source = "cashbook") {
   clearMessages();
@@ -483,14 +498,12 @@ async function saveToDatabase(source = "cashbook") {
     const isHolidayChecked = document.getElementById("is-holiday").checked;
     const isWeekend = (dateObj.getDay() === 0 || dateObj.getDay() === 6);
 
-    // Calculated fields
     const income = Number(document.getElementById("calc-income").value || 0);
     const guideFee = Number(document.getElementById("calc-guide").value || 0);
     const rr = Number(document.getElementById("calc-rr").value || 0);
     const edc = Number(document.getElementById("calc-edc").value || 0);
     const emf = Number(document.getElementById("calc-emf").value || 0);
 
-    // Payment fields (may be 0 if user saves from Tab 1)
     const epos = Math.max(0, parseInt(document.getElementById("pay-epos").value, 10) || 0);
     const upi = Math.max(0, parseInt(document.getElementById("pay-upi").value, 10) || 0);
     const cash = Math.max(0, parseInt(document.getElementById("pay-cash").value, 10) || 0);
@@ -525,17 +538,12 @@ async function saveToDatabase(source = "cashbook") {
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     };
 
-    // STRICT unique ID: date + nationality
     const targetDocId = `${dateVal}_${nationality}`;
     const targetRef = firestoreDb.collection("daily_collections").doc(targetDocId);
-
-    // If editing and the user changes date/nationality => docId changes:
-    // we upsert new docId and delete old docId to avoid two docs for same record.
     const previousDocId = currentEditDocId;
 
     setSavingUI(true, previousDocId ? "Updating..." : "Saving...");
 
-    // Transaction: check exist -> create or update
     let existed = false;
     await firestoreDb.runTransaction(async (tx) => {
       const snap = await tx.get(targetRef);
@@ -551,15 +559,12 @@ async function saveToDatabase(source = "cashbook") {
       }
     });
 
-    // If editing and docId changed: delete old doc (so edit doesn't leave leftovers)
     if (previousDocId && previousDocId !== targetDocId) {
       await firestoreDb.collection("daily_collections").doc(previousDocId).delete().catch(() => {});
     }
 
-    // If we were editing, exit edit mode
     if (previousDocId) cancelEdit(true);
 
-    // Success message (shown on the tab that triggered save)
     const msg = existed
       ? `Updated record for ${dateVal} (${nationalityLabel(nationality)}).`
       : `Saved record for ${dateVal} (${nationalityLabel(nationality)}).`;
@@ -761,7 +766,7 @@ function cancelEdit(silent = false) {
 }
 
 /* ---------------------------
-   TAB 5: MONTHLY ABSTRACT (NOW CALCULATED FROM historyCache)
+   TAB 5: MONTHLY ABSTRACT
 ---------------------------- */
 function generateAbstract() {
   const fy = document.getElementById("fy-select").value;
@@ -776,9 +781,8 @@ function generateAbstract() {
     return;
   }
 
-  // Financial Year: April 1 (startYear) to April 1 (startYear+1)
-  const fyStart = new Date(startYear, 3, 1);       // Apr 1
-  const fyEnd = new Date(startYear + 1, 3, 1);     // next Apr 1 (exclusive)
+  const fyStart = new Date(startYear, 3, 1);
+  const fyEnd = new Date(startYear + 1, 3, 1);
 
   const months = [
     { name: "Apr", year: startYear.toString().slice(-2) },
@@ -795,42 +799,32 @@ function generateAbstract() {
     { name: "Mar", year: (startYear + 1).toString().slice(-2) }
   ];
 
-  // 12 buckets aligned with the months array above (Apr..Mar)
   const buckets = months.map(() => ({
-    rev: 0,  // sum of income
-    sf: 0,   // sum of rr
-    iA: 0,
-    iC: 0,
-    fA: 0,
-    fC: 0
+    rev: 0,
+    sf: 0,
+    iA: 0, iC: 0,
+    fA: 0, fC: 0
   }));
 
-  // Fill buckets from historyCache
   const list = Array.from(historyCache.values());
   for (const r of list) {
     const dateObj = parseLocalYMD(r.dateStr);
     if (!dateObj) continue;
-
-    // Check belongs to selected financial year window
     if (dateObj < fyStart || dateObj >= fyEnd) continue;
 
-    const m = dateObj.getMonth(); // 0..11
-    // Map calendar month to FY index (Apr=0 .. Mar=11)
+    const m = dateObj.getMonth();
     const idx = (m >= 3) ? (m - 3) : (m + 9);
+
     const b = buckets[idx];
     if (!b) continue;
 
-    const income = Number(r.income || 0);
-    const rr = Number(r.rr || 0);
-
-    b.rev += income;
-    b.sf += rr;
+    b.rev += Number(r.income || 0);
+    b.sf += Number(r.rr || 0);
 
     const pkg5Count = Number(r.pkg5Count || 0);
     const pkg10Count = Number(r.pkg10Count || 0);
     const extraPersons = Number(r.extraPersons || 0);
     const children = Number(r.children || 0);
-
     const adults = (pkg5Count * 5) + (pkg10Count * 10) + extraPersons;
 
     if (r.nationality === "indian") {
@@ -842,7 +836,6 @@ function generateAbstract() {
     }
   }
 
-  // Render table body + totals
   let tbodyHtml = "";
   let totRev = 0, totSf = 0, totIa = 0, totIc = 0, totFa = 0, totFc = 0, totAll = 0;
 
@@ -853,7 +846,8 @@ function generateAbstract() {
     const totalVisitors = (data.iA + data.iC + data.fA + data.fC);
 
     totRev += data.rev; totSf += data.sf;
-    totIa += data.iA; totIc += data.iC; totFa += data.fA; totFc += data.fC;
+    totIa += data.iA; totIc += data.iC;
+    totFa += data.fA; totFc += data.fC;
     totAll += totalVisitors;
 
     tbodyHtml += `
@@ -884,4 +878,62 @@ function generateAbstract() {
       <th>${totAll || "0"}</th>
     </tr>
   `;
+}
+
+/* ==========================================
+   HOME DASHBOARD NAVIGATION LOGIC (FIXED)
+   - Updates .active (required for print CSS)
+   - Hides legacy .tabs bar
+========================================== */
+function openMenu(sectionId) {
+  const dashboard = document.getElementById("home-dashboard");
+  const backBar = document.getElementById("back-bar");
+  const tabsBar = document.querySelector(".tabs");
+
+  if (dashboard) dashboard.style.display = "none";
+  if (backBar) backBar.style.display = "block";
+  if (tabsBar) tabsBar.style.display = "none";
+
+  // Hide all sections and clear active state
+  document.querySelectorAll(".tab-content").forEach(content => {
+    content.classList.remove("active");
+    content.style.display = "none";
+  });
+
+  // Show selected section + mark active (CRITICAL for print)
+  const target = document.getElementById(sectionId);
+  if (target) {
+    target.style.display = "block";
+    target.classList.add("active");
+  }
+
+  // Trigger section-specific refresh
+  if (sectionId === "content-cashbook") preparePrintData();
+  if (sectionId === "content-abstract") generateAbstract();
+  if (sectionId === "content-history") renderHistoryTable();
+
+  window.scrollTo(0, 0);
+}
+
+function goHome() {
+  const dashboard = document.getElementById("home-dashboard");
+  const backBar = document.getElementById("back-bar");
+  const tabsBar = document.querySelector(".tabs");
+
+  if (dashboard) dashboard.style.display = "block";
+  if (backBar) backBar.style.display = "none";
+  if (tabsBar) tabsBar.style.display = "none";
+
+  // Hide all sections and clear active state (so print doesn't print a wrong section)
+  document.querySelectorAll(".tab-content").forEach(content => {
+    content.classList.remove("active");
+    content.style.display = "none";
+  });
+
+  window.scrollTo(0, 0);
+}
+
+// Keep old "Next" buttons and legacy tab onclicks working
+function switchTab(tabName) {
+  openMenu("content-" + tabName);
 }

@@ -13,8 +13,6 @@
 </head>
 
 <body>
-  <!-- Online/Offline Status Indicator REMOVED -->
-
   <!-- Login Screen -->
   <div class="container" id="login-screen" style="margin-top: 10px;">
     <h2>ലോഗിൻ (Login)</h2>
@@ -54,12 +52,37 @@
 
   <!-- Main App Screen -->
   <div class="container" id="app-screen">
-    <div class="app-head no-print">
-      <div>
+    <!-- ==========================================
+         HOME DASHBOARD (NEW)
+    ========================================== -->
+    <div id="home-dashboard" class="no-print">
+      <div class="top-action-bar">
+        <button type="button" class="btn-logout-new" onclick="logout()">Logout</button>
+        <button type="button" class="btn-warning" onclick="changePassword()">Change Password</button>
+      </div>
+
+      <div class="text-center">
         <h2 class="app-title">Vazhvanthol Eco Tourism</h2>
         <h3 class="app-subtitle">Daily Collection Details</h3>
       </div>
-      <button type="button" class="btn-logout" onclick="logout()">Logout</button>
+
+      <div class="menu-buttons">
+        <button type="button" class="btn-menu bg-green" onclick="openMenu('content-package')">PACKAGE ENTRY</button>
+        <button type="button" class="btn-menu bg-orange" onclick="openMenu('content-payment')">PAYMENT DETAILS</button>
+        <button type="button" class="btn-menu bg-blue" onclick="openMenu('content-cashbook')">CASH BOOK</button>
+        <button type="button" class="btn-menu bg-purple" onclick="openMenu('content-history')">HISTORY &amp; RECORDS</button>
+        <button type="button" class="btn-menu bg-teal" onclick="openMenu('content-abstract')">MONTHLY ABSTRACT</button>
+      </div>
+      
+      <div class="developer-credit no-print" style="margin-top: 40px;">
+        Designed & Developed by <span class="dev-name">MITHUN C NAIR</span>
+    </div>
+
+    </div>
+
+    <!-- Back bar shown while inside a section -->
+    <div id="back-bar" class="no-print" style="display: none;">
+      <button type="button" class="btn-back" onclick="goHome()">⬅ Back to Home Menu</button>
     </div>
 
     <!-- Edit Mode Banner -->
@@ -74,20 +97,11 @@
       </div>
     </div>
 
-    <!-- 5 Tabs -->
-    <div class="tabs no-print">
-      <div class="tab active" id="tab-package" onclick="switchTab('package')">1. Package Entry</div>
-      <div class="tab" id="tab-payment" onclick="switchTab('payment')">2. Payment Details</div>
-      <div class="tab" id="tab-cashbook" onclick="switchTab('cashbook')">3. Cash Book</div>
-
-      <!-- SWAPPED: Tab 4 is now History, Tab 5 is now Abstract (classes/structure unchanged) -->
-      <div class="tab" id="tab-history" onclick="switchTab('history')">4. History & Records</div>
-      <div class="tab" id="tab-abstract" onclick="switchTab('abstract')">5. Monthly Abstract</div>
-    </div>
+    <!-- Legacy Tabs REMOVED -->
 
     <form id="cashbook-form">
-      <!-- TAB 1 -->
-      <div id="content-package" class="tab-content active">
+      <!-- SECTION: PACKAGE ENTRY -->
+      <div id="content-package" class="tab-content">
         <div class="grid-2">
           <div class="form-group">
             <label for="date">Date (തീയതി)</label>
@@ -160,20 +174,19 @@
           </div>
         </div>
 
-        <!-- NEW: Save button in Tab 1 + Next button side-by-side -->
         <div class="grid-2 no-print">
           <button type="button" class="btn-save" id="btn-save-db-tab1" onclick="saveToDatabase('package')">Save to Database</button>
           <button type="button" onclick="switchTab('payment')">Next: Payment Details &raquo;</button>
         </div>
 
-        <!-- NEW: Message placeholder for Tab 1 saves -->
         <p id="pkg-msg" class="db-msg no-print"></p>
+
         <div class="developer-credit no-print">
-  Designed & Developed by <span class="dev-name">MITHUN C NAIR</span>
-</div>
+          Designed &amp; Developed by <span class="dev-name">MITHUN C NAIR</span>
+        </div>
       </div>
 
-      <!-- TAB 2 -->
+      <!-- SECTION: PAYMENT DETAILS -->
       <div id="content-payment" class="tab-content">
         <div class="payment-summary">
           <h4>Date: <span id="display-payment-date">-</span></h4>
@@ -213,7 +226,7 @@
         </div>
       </div>
 
-      <!-- TAB 3 -->
+      <!-- SECTION: CASH BOOK -->
       <div id="content-cashbook" class="tab-content">
         <div class="preview-container" id="print-section"></div>
 
@@ -226,11 +239,11 @@
         </div>
       </div>
 
-      <!-- TAB 4: HISTORY (moved before abstract; internal structure unchanged) -->
+      <!-- SECTION: HISTORY -->
       <div id="content-history" class="tab-content">
         <div class="history-head no-print">
           <div>
-            <h3 class="history-title">History & Records</h3>
+            <h3 class="history-title">History &amp; Records</h3>
             <p class="history-sub">Firestore collection: <b>daily_collections</b></p>
           </div>
           <div class="history-actions">
@@ -284,7 +297,7 @@
         </p>
       </div>
 
-      <!-- TAB 5: MONTHLY ABSTRACT -->
+      <!-- SECTION: MONTHLY ABSTRACT -->
       <div id="content-abstract" class="tab-content">
         <div class="form-group no-print abstract-controls">
           <label for="fy-select">സാമ്പത്തിക വർഷം (Financial Year):</label>
