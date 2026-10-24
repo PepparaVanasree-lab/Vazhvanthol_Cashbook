@@ -690,17 +690,17 @@ button:hover{ background-color:#1b5e20; }
 }
 
 /* =========================================================
-   PRINT (BULLETPROOF CASHBOOK + STRICT LANDSCAPE A4)
+   PRINT (A4 PORTRAIT) - CASH BOOK FIT ALL COLUMNS (A..J)
 ========================================================= */
 
-/* Put @page outside @media for better browser support */
+/* Put @page outside @media for best support */
 @page{
-  size: A4 landscape;
-  margin: 8mm;
+  size: A4 portrait;
+  margin: 5mm;
 }
 
 @media print{
-  /* 1) HARD HIDE all UI/controls/toolbars */
+  /* 1) STRICTLY HIDE all UI/controls/toolbars */
   #home-dashboard,
   #back-bar,
   .cashbook-controls,
@@ -713,7 +713,7 @@ button:hover{ background-color:#1b5e20; }
     visibility:hidden !important;
   }
 
-  /* In case anything slips through */
+  /* extra safety */
   .top-action-bar,
   .menu-buttons,
   .developer-credit,
@@ -754,67 +754,72 @@ button:hover{ background-color:#1b5e20; }
   .tab-content{ display:none !important; }
   .tab-content.active{ display:block !important; }
 
-  /* CASH BOOK: landscape-friendly layout */
+  /* 3) CASH BOOK: compact header spacing */
   #content-cashbook{
     margin:0 !important;
     padding:0 !important;
   }
 
   #content-cashbook .cashbook-header{
-    margin:0 0 3mm 0 !important;
+    margin:0 0 2mm 0 !important;
+  }
+
+  #content-cashbook .cashbook-header h3{
+    margin:0 !important;
+    font-size:12px !important;
+  }
+
+  #content-cashbook .cashbook-header h4{
+    margin:1px 0 !important;
+    font-size:10px !important;
   }
 
   #content-cashbook .cashbook-monthline{
-    margin:2mm 0 0 !important;
+    margin:1.5mm 0 0 !important;
+    font-size:10px !important;
   }
 
-  /* Remove scroll wrappers in print */
+  /* Remove scroll wrapper in print */
   #content-cashbook .cashbook-table-wrap{
     overflow:visible !important;
     border:none !important;
     border-radius:0 !important;
   }
 
-  /* 3) Table sizing: fit ALL columns A..J on A4 landscape */
+  /* 2) Table auto-sizing + compact font so ALL columns fit in Portrait */
   #content-cashbook .cashbook-table{
     width:100% !important;
-    min-width:0 !important;           /* overrides min-width:1300px */
-    table-layout:fixed !important;    /* prevents overflow/cutoff */
+    min-width:0 !important;              /* overrides min-width:1300px */
+    table-layout:auto !important;        /* requested */
     border-collapse:collapse !important;
 
-    font-size:9.5px !important;
-    line-height:1.15 !important;
+    font-size:8.5px !important;          /* 8px–8.5px */
+    line-height:1.1 !important;
     color:#000 !important;
   }
 
   #content-cashbook .cashbook-table th,
   #content-cashbook .cashbook-table td{
-    padding:3px 4px !important;
+    padding:2px 3px !important;          /* requested */
     border:1px solid #000 !important;
     vertical-align:top !important;
   }
 
+  /* Headers may wrap (so they don't force wide columns) */
   #content-cashbook .cashbook-table th{
+    white-space:normal !important;
+    word-break:break-word !important;
+    overflow-wrap:anywhere !important;
+
     background:#f2f2f2 !important;
     font-weight:900 !important;
     text-align:center !important;
+
     -webkit-print-color-adjust:exact;
     print-color-adjust:exact;
   }
 
-  /* Ensure Action column never prints */
-  #content-cashbook .cashbook-table .no-print{
-    display:none !important;
-    visibility:hidden !important;
-  }
-
-  /* Prevent long text from forcing table wider */
-  #content-cashbook .cashbook-table td{
-    overflow:hidden !important;
-    text-overflow:clip !important;
-  }
-
-  /* Keep numeric columns compact; allow Remarks to wrap */
+  /* Keep numbers compact on ONE line */
   #content-cashbook .cashbook-table td:nth-child(1),
   #content-cashbook .cashbook-table td:nth-child(2),
   #content-cashbook .cashbook-table td:nth-child(3),
@@ -827,40 +832,58 @@ button:hover{ background-color:#1b5e20; }
     white-space:nowrap !important;
   }
 
+  /* Remarks can wrap */
   #content-cashbook .cashbook-table td:nth-child(10){
     white-space:normal !important;
     overflow-wrap:anywhere !important;
     word-break:break-word !important;
   }
 
-  /* 4) Better page breaking */
+  /* Ensure Action column never prints */
+  #content-cashbook .cashbook-table .no-print{
+    display:none !important;
+    visibility:hidden !important;
+  }
+
+  /* 4) Page breaking improvements */
   #content-cashbook .cashbook-table thead{
-    display:table-header-group !important; /* repeat header each page */
+    display:table-header-group !important; /* repeats header each page */
   }
 
-  #content-cashbook .cashbook-table tfoot{
-    display:table-row-group !important; /* totals only at end */
-  }
-
+  /* Keep rows intact where possible */
   #content-cashbook .cashbook-table tr{
     break-inside:avoid !important;
     page-break-inside:avoid !important;
   }
 
+  /* Totals row emphasis */
   #content-cashbook .cashbook-total-row td{
     font-weight:900 !important;
     border-top:2px solid #000 !important;
     background:#f9fafb !important;
+
     -webkit-print-color-adjust:exact;
     print-color-adjust:exact;
   }
 
-  /* Summary card: keep together */
+  /* Summary card compact so it fits below table */
   #content-cashbook .cashbook-summary{
-    margin-top:3mm !important;
-    max-width:100% !important;
+    margin-top:2mm !important;
+    padding:6px 8px !important;
     border-radius:0 !important;
+    max-width:100% !important;
+
     break-inside:avoid !important;
     page-break-inside:avoid !important;
+  }
+
+  #content-cashbook .cashbook-summary-row{
+    padding:2px 0 !important;
+    font-size:9px !important;
+    line-height:1.1 !important;
+  }
+
+  #content-cashbook .cashbook-summary-strong span:last-child{
+    font-size:10px !important;
   }
 }
