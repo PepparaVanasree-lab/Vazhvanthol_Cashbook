@@ -379,8 +379,6 @@ button:hover{ background-color:#1b5e20; }
 /* ==========================================
    HOME DASHBOARD STYLES (Top bar + menu)
 ========================================== */
-
-/* Simple single-row top action bar: Logout (left) + Online (right) */
 .top-action-bar{
   display:flex !important;
   flex-direction:row !important;
@@ -409,7 +407,6 @@ button:hover{ background-color:#1b5e20; }
   margin-top:0 !important;
 }
 
-/* Compact Logout button */
 .btn-logout-compact{
   padding:9px 14px;
   border:none;
@@ -425,7 +422,6 @@ button:hover{ background-color:#1b5e20; }
   cursor:pointer;
 }
 
-/* Online badge (light green pill) */
 .status-badge{
   flex:0 0 auto;
   display:inline-flex;
@@ -573,11 +569,11 @@ button:hover{ background-color:#1b5e20; }
   border-radius:10px;
 }
 
-/* Wide multi-column table */
+/* Wide multi-column table (screen) */
 .cashbook-table{
   width:100%;
   border-collapse:collapse;
-  min-width:1300px; /* IMPORTANT: forces horizontal scroll on phones */
+  min-width:1300px;
   font-size:12px;
   color:#000;
 }
@@ -629,12 +625,9 @@ button:hover{ background-color:#1b5e20; }
 .cashbook-total-row td{
   background:#f9fafb;
   font-weight:900;
-}
-.cashbook-total-row td{
   border-top:2px solid #000;
 }
 
-/* Edit button in Action column */
 .cb-edit-btn{
   width:auto !important;
   margin-top:0 !important;
@@ -649,7 +642,6 @@ button:hover{ background-color:#1b5e20; }
 }
 .cb-edit-btn:hover{ background:#d97706; }
 
-/* Summary card */
 .cashbook-summary{
   margin-top:14px;
   border:1px solid #000;
@@ -679,7 +671,196 @@ button:hover{ background-color:#1b5e20; }
   font-size:16px;
 }
 
-/* Controls stack on mobile */
+/* ---------------------------
+   Mobile Responsive (general + cashbook)
+---------------------------- */
 @media (max-width:600px){
+  .grid-2, .grid-3{ grid-template-columns:1fr; }
+  .action-buttons{ flex-direction:column; }
+
+  .history-head{ flex-direction:column; }
+  .history-controls{ grid-template-columns:1fr; }
+
   .cashbook-controls{ grid-template-columns:1fr; }
+}
+
+@media (max-width:380px){
+  .btn-logout-compact{ padding:8px 12px; font-size:14px; }
+  .status-badge{ padding:6px 10px; font-size:13px; }
+}
+
+/* =========================================================
+   PRINT (BULLETPROOF CASHBOOK + STRICT LANDSCAPE A4)
+========================================================= */
+
+/* Put @page outside @media for better browser support */
+@page{
+  size: A4 landscape;
+  margin: 8mm;
+}
+
+@media print{
+  /* 1) HARD HIDE all UI/controls/toolbars */
+  #home-dashboard,
+  #back-bar,
+  .cashbook-controls,
+  .no-print,
+  button,
+  input,
+  select,
+  textarea{
+    display:none !important;
+    visibility:hidden !important;
+  }
+
+  /* In case anything slips through */
+  .top-action-bar,
+  .menu-buttons,
+  .developer-credit,
+  .edit-banner{
+    display:none !important;
+    visibility:hidden !important;
+  }
+
+  /* Base print reset */
+  html, body{
+    background:#fff !important;
+    margin:0 !important;
+    padding:0 !important;
+    width:100% !important;
+    height:auto !important;
+  }
+
+  body{
+    display:block !important;
+    -webkit-print-color-adjust:exact;
+    print-color-adjust:exact;
+  }
+
+  #login-screen{ display:none !important; }
+  #app-screen{ display:block !important; }
+
+  .container{
+    box-shadow:none !important;
+    border:none !important;
+    border-radius:0 !important;
+    margin:0 !important;
+    padding:0 !important;
+    max-width:none !important;
+    width:100% !important;
+  }
+
+  /* Print ONLY the active tab content */
+  .tab-content{ display:none !important; }
+  .tab-content.active{ display:block !important; }
+
+  /* CASH BOOK: landscape-friendly layout */
+  #content-cashbook{
+    margin:0 !important;
+    padding:0 !important;
+  }
+
+  #content-cashbook .cashbook-header{
+    margin:0 0 3mm 0 !important;
+  }
+
+  #content-cashbook .cashbook-monthline{
+    margin:2mm 0 0 !important;
+  }
+
+  /* Remove scroll wrappers in print */
+  #content-cashbook .cashbook-table-wrap{
+    overflow:visible !important;
+    border:none !important;
+    border-radius:0 !important;
+  }
+
+  /* 3) Table sizing: fit ALL columns A..J on A4 landscape */
+  #content-cashbook .cashbook-table{
+    width:100% !important;
+    min-width:0 !important;           /* overrides min-width:1300px */
+    table-layout:fixed !important;    /* prevents overflow/cutoff */
+    border-collapse:collapse !important;
+
+    font-size:9.5px !important;
+    line-height:1.15 !important;
+    color:#000 !important;
+  }
+
+  #content-cashbook .cashbook-table th,
+  #content-cashbook .cashbook-table td{
+    padding:3px 4px !important;
+    border:1px solid #000 !important;
+    vertical-align:top !important;
+  }
+
+  #content-cashbook .cashbook-table th{
+    background:#f2f2f2 !important;
+    font-weight:900 !important;
+    text-align:center !important;
+    -webkit-print-color-adjust:exact;
+    print-color-adjust:exact;
+  }
+
+  /* Ensure Action column never prints */
+  #content-cashbook .cashbook-table .no-print{
+    display:none !important;
+    visibility:hidden !important;
+  }
+
+  /* Prevent long text from forcing table wider */
+  #content-cashbook .cashbook-table td{
+    overflow:hidden !important;
+    text-overflow:clip !important;
+  }
+
+  /* Keep numeric columns compact; allow Remarks to wrap */
+  #content-cashbook .cashbook-table td:nth-child(1),
+  #content-cashbook .cashbook-table td:nth-child(2),
+  #content-cashbook .cashbook-table td:nth-child(3),
+  #content-cashbook .cashbook-table td:nth-child(4),
+  #content-cashbook .cashbook-table td:nth-child(5),
+  #content-cashbook .cashbook-table td:nth-child(6),
+  #content-cashbook .cashbook-table td:nth-child(7),
+  #content-cashbook .cashbook-table td:nth-child(8),
+  #content-cashbook .cashbook-table td:nth-child(9){
+    white-space:nowrap !important;
+  }
+
+  #content-cashbook .cashbook-table td:nth-child(10){
+    white-space:normal !important;
+    overflow-wrap:anywhere !important;
+    word-break:break-word !important;
+  }
+
+  /* 4) Better page breaking */
+  #content-cashbook .cashbook-table thead{
+    display:table-header-group !important; /* repeat header each page */
+  }
+
+  #content-cashbook .cashbook-table tfoot{
+    display:table-row-group !important; /* totals only at end */
+  }
+
+  #content-cashbook .cashbook-table tr{
+    break-inside:avoid !important;
+    page-break-inside:avoid !important;
+  }
+
+  #content-cashbook .cashbook-total-row td{
+    font-weight:900 !important;
+    border-top:2px solid #000 !important;
+    background:#f9fafb !important;
+    -webkit-print-color-adjust:exact;
+    print-color-adjust:exact;
+  }
+
+  /* Summary card: keep together */
+  #content-cashbook .cashbook-summary{
+    margin-top:3mm !important;
+    max-width:100% !important;
+    border-radius:0 !important;
+    break-inside:avoid !important;
+    page-break-inside:avoid !important;
+  }
 }
