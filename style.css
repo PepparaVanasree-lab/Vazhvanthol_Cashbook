@@ -240,6 +240,44 @@ button:disabled{
 .small-note{ color:#2E7D32; font-size:13px; }
 
 /* ---------------------------
+   Wildlife week badge (NEW)
+---------------------------- */
+.wildlife-badge{
+  margin-top:10px;
+  display:inline-block;
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px solid #ffe0b2;
+  background:#fff8e1;
+  color:#e65100;
+  font-weight:900;
+  font-size:13px;
+}
+
+/* ---------------------------
+   Custom guides UI (NEW)
+---------------------------- */
+.custom-guides-toggle{
+  margin-top:10px;
+  display:flex;
+  align-items:center;
+  background-color:#e3f2fd;
+  padding:6px;
+  border-radius:6px;
+  border:1px solid #bbdefb;
+}
+.custom-guides-toggle input{ width:auto; margin-right:8px; cursor:pointer; }
+.custom-guides-label{ font-weight:800; margin:0; cursor:pointer; color:#0d47a1; }
+
+.custom-guides-box{
+  margin-top:10px;
+  background:#f7fbff;
+  border:1px dashed #90caf9;
+  border-radius:10px;
+  padding:10px;
+}
+
+/* ---------------------------
    Payment summary
 ---------------------------- */
 .payment-summary{
@@ -267,7 +305,7 @@ button:disabled{
 .muted{ color:#666; }
 
 /* ---------------------------
-   Report Preview (still used by Monthly Abstract)
+   Report Preview (Monthly Abstract)
 ---------------------------- */
 .preview-container{
   background:#fff;
@@ -409,7 +447,7 @@ button:disabled{
 .dev-name{ color:var(--primary-color); font-weight:800; }
 
 /* ==========================================
-   HOME DASHBOARD STYLES (Top bar + menu)
+   HOME DASHBOARD STYLES
 ========================================== */
 .top-action-bar{
   display:flex !important;
@@ -424,7 +462,6 @@ button:disabled{
   gap:12px;
 }
 
-/* HARD override against global button { width:100% } */
 .top-action-bar button{
   flex:0 0 auto !important;
   width:auto !important;
@@ -535,7 +572,6 @@ button:disabled{
   flex-wrap:wrap;
 }
 
-/* Compact buttons (override global button styles) */
 .cb-btn{
   width:auto !important;
   margin-top:0 !important;
@@ -594,14 +630,12 @@ button:disabled{
   color:#333;
 }
 
-/* Mobile scrolling for wide table */
 .cashbook-table-wrap{
   overflow-x:auto;
   border:1px solid #ddd;
   border-radius:10px;
 }
 
-/* Wide multi-column table (screen) */
 .cashbook-table{
   width:100%;
   border-collapse:collapse;
@@ -627,7 +661,6 @@ button:disabled{
   background:#fff;
 }
 
-/* Align numeric columns to the right */
 .cashbook-table td:nth-child(2),
 .cashbook-table td:nth-child(3),
 .cashbook-table td:nth-child(4),
@@ -640,20 +673,17 @@ button:disabled{
   font-weight:900;
 }
 
-/* Date */
 .cashbook-table td:nth-child(1){
   text-align:center;
   white-space:nowrap;
   font-weight:800;
 }
 
-/* Remarks */
 .cashbook-table td:nth-child(10){
   text-align:left;
   font-weight:700;
 }
 
-/* Totals row */
 .cashbook-total-row td{
   background:#f9fafb;
   font-weight:900;
@@ -675,7 +705,7 @@ button:disabled{
 .cb-edit-btn:hover{ background:#d97706; }
 
 /* ==========================================
-   CASH BOOK ABSTRACT TABLE (NEW)
+   CASH BOOK ABSTRACT TABLE
 ========================================== */
 .cashbook-abstract-wrap{
   margin-top:14px;
@@ -725,7 +755,7 @@ button:disabled{
 }
 
 /* ---------------------------
-   Mobile Responsive (general + cashbook)
+   Mobile Responsive
 ---------------------------- */
 @media (max-width:600px){
   .grid-2, .grid-3{ grid-template-columns:1fr; }
@@ -743,16 +773,14 @@ button:disabled{
 }
 
 /* =========================================================
-   PRINT (A4 PORTRAIT) - CASH BOOK CLEAN COLUMNS (A..J)
+   PRINT (A4 PORTRAIT)
 ========================================================= */
-
 @page{
   size: A4 portrait;
   margin: 5mm;
 }
 
 @media print{
-  /* STRICTLY HIDE all UI/controls/toolbars */
   #home-dashboard,
   #back-bar,
   .cashbook-controls,
@@ -765,7 +793,6 @@ button:disabled{
     visibility:hidden !important;
   }
 
-  /* Extra safety */
   .top-action-bar,
   .menu-buttons,
   .developer-credit,
@@ -775,7 +802,6 @@ button:disabled{
     visibility:hidden !important;
   }
 
-  /* Base print reset */
   html, body{
     background:#fff !important;
     margin:0 !important;
@@ -803,11 +829,9 @@ button:disabled{
     width:100% !important;
   }
 
-  /* Print ONLY the active tab content */
   .tab-content{ display:none !important; }
   .tab-content.active{ display:block !important; }
 
-  /* Cashbook header compact */
   #content-cashbook{ margin:0 !important; padding:0 !important; }
 
   #content-cashbook .cashbook-header{
@@ -829,20 +853,16 @@ button:disabled{
     color:#000 !important;
   }
 
-  /* Hide the [A]/[B]... codes in print to keep header cleaner */
   #content-cashbook .col-code{
     display:none !important;
   }
 
-  /* Remove scroll wrapper in print */
   #content-cashbook .cashbook-table-wrap{
     overflow:visible !important;
     border:none !important;
     border-radius:0 !important;
   }
 
-  /* IMPORTANT:
-     Use table-layout: fixed to make % widths deterministic in print. */
   #content-cashbook .cashbook-table{
     width:100% !important;
     min-width:0 !important;
@@ -861,7 +881,6 @@ button:disabled{
     vertical-align:top !important;
   }
 
-  /* Header: prevent mid-word breaking */
   #content-cashbook .cashbook-table th{
     font-size:7.5px !important;
     font-weight:900 !important;
@@ -877,41 +896,19 @@ button:disabled{
     print-color-adjust:exact;
   }
 
-  /* Ensure Action column never prints */
   #content-cashbook .cashbook-table .no-print{
     display:none !important;
     visibility:hidden !important;
   }
 
-  /* ---------- Explicit column widths (A..J) ----------
-     Printed visible columns are:
-     1 Date
-     2 Income
-     3 Guide
-     4 RR
-     5 EDC
-     6 EPOS
-     7 UPI
-     8 Cash
-     9 Remitted
-     10 Remarks
-  */
-
-  /* Row 1 headers: Date, Remitted, Remarks */
   #content-cashbook .cashbook-table thead tr:nth-child(1) th:nth-child(1){ width:9% !important; }
-  /* In row 1, "Amount remitted to bank" is the 5th TH of row 1 */
   #content-cashbook .cashbook-table thead tr:nth-child(1) th:nth-child(5){ width:9% !important; }
-  /* In row 1, "Remarks" is the 6th TH of row 1 */
   #content-cashbook .cashbook-table thead tr:nth-child(1) th:nth-child(6){ width:19% !important; }
 
-  /* Row 2 headers: 7 amount headers (Income amount + 3 exp + 3 received) */
   #content-cashbook .cashbook-table thead tr:nth-child(2) th{
     width:9% !important;
   }
 
-  /* Body cell behavior:
-     - Date and numbers stay in one line
-     - Remarks wraps normally */
   #content-cashbook .cashbook-table tbody td:nth-child(1),
   #content-cashbook .cashbook-table tbody td:nth-child(2),
   #content-cashbook .cashbook-table tbody td:nth-child(3),
@@ -930,7 +927,6 @@ button:disabled{
     overflow-wrap:break-word !important;
   }
 
-  /* Align number columns right */
   #content-cashbook .cashbook-table tbody td:nth-child(2),
   #content-cashbook .cashbook-table tbody td:nth-child(3),
   #content-cashbook .cashbook-table tbody td:nth-child(4),
@@ -942,7 +938,6 @@ button:disabled{
     text-align:right !important;
   }
 
-  /* Page breaking improvements */
   #content-cashbook .cashbook-table thead{
     display:table-header-group !important;
   }
@@ -952,7 +947,6 @@ button:disabled{
     page-break-inside:avoid !important;
   }
 
-  /* Totals row emphasis */
   #content-cashbook .cashbook-total-row td{
     font-weight:900 !important;
     border-top:2px solid #000 !important;
@@ -961,7 +955,6 @@ button:disabled{
     print-color-adjust:exact;
   }
 
-  /* ABSTRACT table (print) */
   #content-cashbook .cashbook-abstract-wrap{
     margin-top:2mm !important;
     border-radius:0 !important;
@@ -986,6 +979,7 @@ button:disabled{
     print-color-adjust:exact !important;
   }
 }
+
 .last-update{
   text-align:center;
   margin-top:10px;

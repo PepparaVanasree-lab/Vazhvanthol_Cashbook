@@ -1,10 +1,24 @@
 /**************************************************************
  * Vazhvanthol Eco Tourism Cash Book
  *
- * Updates in this version:
- * - Auto-save on Next buttons (Package -> Payment, Payment -> Cashbook)
- * - Non-blocking toast for Saved/Updated status
- * - GitHub "Last update" date auto-fetch (latest commit date) with fallback
+ * UX + Business Updates in this version:
+ * 1) Inputs blank by default (no "0" shown); empty treated as 0 in calc/save
+ * 2) Changing Date clears package + payment fields (unless Edit mode)
+ * 3) Default payment auto-fills 100% UPI (when EPOS & Cash are blank/0)
+ * 4) Wildlife Week (Oct 2–8): Sanctuary fee FREE (RR=0) and Income reduced by RR
+ * 5) Custom Guide Count override (is-custom-guides + custom-guides-count)
+ *
+ * Existing preserved features:
+ * - Firebase Firestore sync (v9 compat CDN)
+ * - Collection: daily_collections
+ * - Doc ID: `${dateVal}_${nationality}`
+ * - Bank Remittance Date mapping in Cash Book (I shown on remit date row)
+ * - ABSTRACT closing formula: Closing = (Opening + Cash[H]) - Remitted[I]
+ * - Toast notifications
+ * - Auto-save Next buttons
+ * - History listener/cache + edit/delete
+ * - A4 print layout
+ * - GitHub "Last update" auto-fetch + fallback
  **************************************************************/
 
 /* ---------------------------
@@ -53,6 +67,12 @@ let historyUnsubscribe = null;
 let historyCache = new Map(); // docId -> data (with _id)
 
 /* ---------------------------
+   ENTRY UX STATE (NEW)
+---------------------------- */
+let lastSelectedDateForEntry = "";
+let paymentAutofillEnabled = true; // enabled for new entry; disabled once user edits payment fields manually
+
+/* ---------------------------
    TOAST HELPERS
 ---------------------------- */
 let toastTimer = null;
@@ -74,9 +94,7 @@ function showToast(text, kind = "ok", ms = 2200) {
 }
 
 /* ---------------------------
-   GITHUB LAST UPDATE (NEW)
-   - Uses GitHub API: /commits?per_page=1
-   - Fallback to document.lastModified
+   GITHUB LAST UPDATE
 ---------------------------- */
 async function updateLastUpdateFromGitHub() {
   const el = document.getElementById("last-update-display");
@@ -86,7 +104,7 @@ async function updateLastUpdateFromGitHub() {
     try {
       const d = new Date(document.lastModified);
       if (!d || isNaN(d.getTime())) return null;
-      return formatDDMMYYYYSlash(d); // DD/MM/YYYY
+      return formatDDMMYYYYSlash(d);
     } catch {
       return null;
     }
@@ -97,7 +115,6 @@ async function updateLastUpdateFromGitHub() {
     else el.textContent = "Last update: -";
   };
 
-  // If placeholders still present (or missing), avoid API call and just fallback.
   const owner = (GITHUB_REPO?.owner || "").trim();
   const repo = (GITHUB_REPO?.repo || "").trim();
   const looksLikePlaceholder =
@@ -145,7 +162,7 @@ window.onload = function () {
   initFirebase();
   initCashbookControls();
 
-  // NEW: Home dashboard "Last update" (non-blocking)
+  // Home dashboard "Last update"
   updateLastUpdateFromGitHub();
 
   // Pre-fill username + remember checkbox
@@ -170,6 +187,15 @@ window.onload = function () {
     });
   });
 
+  // Payment manual edit => disable auto-fill updates
+  ["pay-epos", "pay-upi", "pay-cash", "bank-remit"].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener("input", () => {
+      paymentAutofillEnabled = false;
+    });
+  });
+
   // History actions (edit/delete)
   document.getElementById("history-tbody").addEventListener("click", async (e) => {
     const btn = e.target.closest("button");
@@ -191,14 +217,14 @@ window.onload = function () {
     renderHistoryTable();
   });
 
-  // Print hook: keep printable content updated
+  // Print hook
   window.addEventListener("beforeprint", () => {
     const activeId = document.querySelector(".tab-content.active")?.id;
     if (activeId === "content-cashbook") renderCashbookMonth(false);
     if (activeId === "content-abstract") generateAbstract();
   });
 
-  // Clean default state
+  // Default state
   goHome();
 
   // AUTO-LOGIN
@@ -240,9 +266,92 @@ async function nextFromPayment() {
   if (res.ok) switchTab("cashbook");
 }
 
-/* ---------------------------
+/* ==========================================================
+   NEW UX: DATE CHANGE RESET (Requirement #2)
+========================================================== */
+function onDateChanged() {
+  const dateVal = (document.getElementById("date")?.value || "").trim();
+
+  // Do NOT reset while editing an existing record
+  if (currentEditDocId) {
+    calculateFees();
+    return;
+  }
+
+  if (!dateVal) {
+    lastSelectedDateForEntry = "";
+    resetEntryFormForNewDate({ keepDate: true });
+    calculateFees();
+    return;
+  }
+
+  if (dateVal !== lastSelectedDateForEntry) {
+    resetEntryFormForNewDate({ keepDate: true });
+    lastSelectedDateForEntry = dateVal;
+  }
+
+  calculateFees();
+}
+
+function resetEntryFormForNewDate({ keepDate = true } = {}) {
+  // Clear package inputs
+  setValIfExists("pkg-5-count", "");
+  setValIfExists("pkg-10-count", "");
+  setValIfExists("extra-persons", "");
+  setValIfExists("children", "");
+
+  // Reset toggles
+  const holidayEl = document.getElementById("is-holiday");
+  if (holidayEl) holidayEl.checked = false;
+
+  const customEl = document.getElementById("is-custom-guides");
+  if (customEl) customEl.checked = false;
+
+  setValIfExists("custom-guides-count", "");
+  toggleCustomGuidesUI(false);
+
+  // Clear payment inputs
+  setValIfExists("pay-epos", "");
+  setValIfExists("pay-upi", "");
+  setValIfExists("pay-cash", "");
+  setValIfExists("bank-remit", "");
+  setValIfExists("bank-remit-date", "");
+  setValIfExists("remarks", "");
+
+  // Reset payment auto-fill behavior for new entry
+  paymentAutofillEnabled = true;
+
+  // Hide wildlife badge immediately (calculateFees will re-show if applicable)
+  const badge = document.getElementById("wildlife-week-badge");
+  if (badge) badge.style.display = "none";
+
+  // Clear status messages
+  clearMessages();
+
+  // Keep date as-is (the user just selected it)
+  if (!keepDate) setValIfExists("date", "");
+}
+
+/* ==========================================================
+   NEW: CUSTOM GUIDES UI (Requirement #5)
+========================================================== */
+function onCustomGuidesToggle() {
+  toggleCustomGuidesUI();
+  calculateFees();
+}
+
+function toggleCustomGuidesUI(force) {
+  const chk = document.getElementById("is-custom-guides");
+  const box = document.getElementById("custom-guides-box");
+  if (!chk || !box) return;
+
+  const shouldShow = (typeof force === "boolean") ? force : !!chk.checked;
+  box.style.display = shouldShow ? "block" : "none";
+}
+
+/* ==========================================================
    CASHBOOK (MONTHLY) INIT
----------------------------- */
+========================================================== */
 function initCashbookControls() {
   const monthSel = document.getElementById("cb-month");
   const yearInp = document.getElementById("cb-year");
@@ -252,13 +361,11 @@ function initCashbookControls() {
 
   if (!monthSel || !yearInp || !loadBtn || !printBtn || !tbody) return;
 
-  // Populate months 01..12
   monthSel.innerHTML = Array.from({ length: 12 }, (_, i) => {
     const m = String(i + 1).padStart(2, "0");
     return `<option value="${m}">${m}</option>`;
   }).join("");
 
-  // Defaults: current month/year
   const now = new Date();
   monthSel.value = String(now.getMonth() + 1).padStart(2, "0");
   yearInp.value = String(now.getFullYear());
@@ -266,7 +373,6 @@ function initCashbookControls() {
   loadBtn.addEventListener("click", () => renderCashbookMonth(true));
   printBtn.addEventListener("click", () => window.print());
 
-  // Edit button handling from monthly cashbook table
   tbody.addEventListener("click", async (e) => {
     const btn = e.target.closest("button");
     if (!btn) return;
@@ -296,8 +402,8 @@ function renderCashbookMonth(showStatusMsg = true) {
   const tbody = document.getElementById("cb-tbody");
   const tfoot = document.getElementById("cb-tfoot");
 
-  const mm = parseInt(monthSel?.value || "", 10);     // 1..12
-  const yyyy = parseInt(yearInp?.value || "", 10);    // e.g., 2026
+  const mm = parseInt(monthSel?.value || "", 10);
+  const yyyy = parseInt(yearInp?.value || "", 10);
 
   if (!mm || !yyyy || yyyy < 2000 || yyyy > 2100) {
     if (msgEl) {
@@ -317,7 +423,6 @@ function renderCashbookMonth(showStatusMsg = true) {
 
   const monthStart = new Date(yyyy, monthIndex, 1);
 
-  // Index history:
   const byDate = new Map();
   const remitByDate = new Map();
 
@@ -347,7 +452,6 @@ function renderCashbookMonth(showStatusMsg = true) {
     }
   }
 
-  // Monthly totals
   let totIncome = 0;
   let totGuide = 0;
   let totRR = 0;
@@ -478,6 +582,11 @@ function setText(id, text) {
   if (el) el.textContent = text;
 }
 
+function setValIfExists(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.value = (val ?? "");
+}
+
 function escapeHtml(str) {
   return String(str || "")
     .replaceAll("&", "&amp;")
@@ -521,6 +630,7 @@ function loadRemembered() {
 }
 
 function saveRemembered(username) {
+  // username only (no password stored)
   localStorage.setItem(REMEMBER_LS_KEY, JSON.stringify({ username, autoLogin: true }));
 }
 
@@ -540,7 +650,10 @@ function autoLoginUser(username) {
   document.getElementById("login-screen").style.display = "none";
   document.getElementById("app-screen").style.display = "block";
 
-  document.getElementById("date").valueAsDate = new Date();
+  const today = toYMD(new Date());
+  document.getElementById("date").value = today;
+  lastSelectedDateForEntry = today;
+  resetEntryFormForNewDate({ keepDate: true });
   calculateFees();
 
   goHome();
@@ -564,7 +677,10 @@ function login() {
     document.getElementById("login-screen").style.display = "none";
     document.getElementById("app-screen").style.display = "block";
 
-    document.getElementById("date").valueAsDate = new Date();
+    const today = toYMD(new Date());
+    document.getElementById("date").value = today;
+    lastSelectedDateForEntry = today;
+    resetEntryFormForNewDate({ keepDate: true });
     calculateFees();
 
     goHome();
@@ -633,6 +749,13 @@ function parseLocalYMD(ymd) {
   return ymd ? new Date(`${ymd}T00:00:00`) : null;
 }
 
+function toYMD(d) {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 function formatDDMMYYYY(dateObj) {
   const day = String(dateObj.getDate()).padStart(2, "0");
   const month = String(dateObj.getMonth() + 1).padStart(2, "0");
@@ -660,19 +783,63 @@ function formatNumber2(n) {
   return num.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-/* ---------------------------
-   CALCULATIONS
----------------------------- */
+/* ==========================================================
+   CALCULATIONS (includes requirements #3, #4, #5)
+========================================================== */
+
+function getIntFromInput(id) {
+  const el = document.getElementById(id);
+  const raw = (el?.value ?? "").toString().trim();
+  // Requirement #1: empty => 0
+  return Math.max(0, parseInt(raw, 10) || 0);
+}
+
+function isBlankOrZero(id) {
+  const el = document.getElementById(id);
+  const raw = (el?.value ?? "").toString().trim();
+  if (raw === "") return true;
+  return (parseInt(raw, 10) || 0) === 0;
+}
+
+function isWildlifeWeek(dateObj) {
+  if (!dateObj) return false;
+  // Oct = 9 (0-based)
+  const m = dateObj.getMonth();
+  const d = dateObj.getDate();
+  return (m === 9 && d >= 2 && d <= 8);
+}
+
+// Requirement #3: default 100% UPI when EPOS & Cash are blank/0
+function autofillUPIFromIncome({ respectUserLock = true } = {}) {
+  const income = Number(document.getElementById("calc-income")?.value || 0);
+
+  // If respecting lock and user has edited payment fields, do not keep overwriting
+  if (respectUserLock && !paymentAutofillEnabled) return;
+
+  const eposEmptyOrZero = isBlankOrZero("pay-epos");
+  const cashEmptyOrZero = isBlankOrZero("pay-cash");
+  const upiEmptyOrZero = isBlankOrZero("pay-upi");
+
+  if (eposEmptyOrZero && cashEmptyOrZero && upiEmptyOrZero) {
+    // fill UPI with expected income
+    const upiEl = document.getElementById("pay-upi");
+    if (upiEl) upiEl.value = income > 0 ? String(income) : "";
+  }
+}
+
 function calculateFees() {
+  toggleCustomGuidesUI(); // ensure UI consistent
+
   const nationality = document.getElementById("nationality").value;
 
-  const count5 = Math.max(0, parseInt(document.getElementById("pkg-5-count").value, 10) || 0);
-  const count10 = Math.max(0, parseInt(document.getElementById("pkg-10-count").value, 10) || 0);
-  const extraPersons = Math.max(0, parseInt(document.getElementById("extra-persons").value, 10) || 0);
+  const count5 = getIntFromInput("pkg-5-count");
+  const count10 = getIntFromInput("pkg-10-count");
+  const extraPersons = getIntFromInput("extra-persons");
   const totalPackages = count5 + count10;
 
-  const dateVal = document.getElementById("date").value;
+  const dateVal = (document.getElementById("date").value || "").trim();
   const dateObj = parseLocalYMD(dateVal);
+
   const isHolidayChecked = document.getElementById("is-holiday").checked;
 
   let isWeekend = false;
@@ -681,11 +848,20 @@ function calculateFees() {
     isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
   }
 
-  let guideFee = 0;
-  if (totalPackages === 0) guideFee = 0;
-  else if ((isWeekend || isHolidayChecked) && dateObj) guideFee = 5850;
-  else guideFee = totalPackages * 650;
+  // Requirement #5: custom guide override
+  const isCustomGuides = !!document.getElementById("is-custom-guides")?.checked;
+  const customGuidesCount = isCustomGuides ? getIntFromInput("custom-guides-count") : 0;
 
+  let guideFee = 0;
+  if (isCustomGuides) {
+    guideFee = customGuidesCount * 650;
+  } else {
+    if (totalPackages === 0) guideFee = 0;
+    else if ((isWeekend || isHolidayChecked) && dateObj) guideFee = 5850;
+    else guideFee = totalPackages * 650;
+  }
+
+  // Base calculations (normal)
   let income = 0, rr = 0, edc = 0;
 
   if (nationality === "indian") {
@@ -698,6 +874,18 @@ function calculateFees() {
     edc = (count5 * 25) + (count10 * 50);
   }
 
+  // Requirement #4: Wildlife Week exemption (Oct 2-8): RR = 0 and Income reduced by RR share
+  const ww = isWildlifeWeek(dateObj);
+  const badge = document.getElementById("wildlife-week-badge");
+  if (badge) badge.style.display = ww ? "inline-block" : "none";
+
+  if (ww) {
+    // Visitors don't pay Sanctuary Fee, so total income reduces by standard RR
+    income = Math.max(0, income - rr);
+    rr = 0;
+  }
+
+  // Requirement #4: EMF formula uses rr (0 when wildlife week)
   const emf = income - rr - edc - guideFee;
 
   document.getElementById("calc-income").value = income;
@@ -719,11 +907,14 @@ function calculateFees() {
   } else {
     document.getElementById("display-payment-date").innerText = "-";
   }
+
+  // Requirement #3: default UPI autofill when appropriate
+  autofillUPIFromIncome({ respectUserLock: true });
 }
 
-/* ---------------------------
-   SAVE / UPDATE (returns result)
----------------------------- */
+/* ==========================================================
+   SAVE / UPDATE
+========================================================== */
 function clearMessages() {
   const a = document.getElementById("pkg-msg");
   const b = document.getElementById("db-msg");
@@ -767,7 +958,6 @@ function setSavingUI(isSaving, label) {
 }
 
 async function saveToDatabase(source = "package", opts = {}) {
-  // opts.toastOnSuccess (bool), opts.toastOnError (bool)
   clearMessages();
 
   if (!firestoreDb) {
@@ -780,7 +970,7 @@ async function saveToDatabase(source = "package", opts = {}) {
   try {
     calculateFees();
 
-    const dateVal = document.getElementById("date").value;
+    const dateVal = (document.getElementById("date").value || "").trim();
     if (!dateVal) {
       const m = "ദയവായി തീയതി തിരഞ്ഞെടുക്കുക!";
       setMessage(source, m, "err");
@@ -791,10 +981,10 @@ async function saveToDatabase(source = "package", opts = {}) {
     const dateObj = parseLocalYMD(dateVal);
     const nationality = document.getElementById("nationality").value;
 
-    const count5 = Math.max(0, parseInt(document.getElementById("pkg-5-count").value, 10) || 0);
-    const count10 = Math.max(0, parseInt(document.getElementById("pkg-10-count").value, 10) || 0);
-    const extraPersons = Math.max(0, parseInt(document.getElementById("extra-persons").value, 10) || 0);
-    const children = Math.max(0, parseInt(document.getElementById("children").value, 10) || 0);
+    const count5 = getIntFromInput("pkg-5-count");
+    const count10 = getIntFromInput("pkg-10-count");
+    const extraPersons = getIntFromInput("extra-persons");
+    const children = getIntFromInput("children");
     const totalPackages = count5 + count10;
 
     if (totalPackages <= 0) {
@@ -806,17 +996,26 @@ async function saveToDatabase(source = "package", opts = {}) {
 
     const isHolidayChecked = document.getElementById("is-holiday").checked;
 
+    // Requirement #5: save custom guides fields
+    const isCustomGuides = !!document.getElementById("is-custom-guides")?.checked;
+    const customGuidesCount = isCustomGuides ? getIntFromInput("custom-guides-count") : 0;
+
+    // Ensure requirement #3 before saving (even if userLock is off):
+    // only fills when EPOS & Cash are blank/0 and UPI is blank/0.
+    autofillUPIFromIncome({ respectUserLock: false });
+
     const income = Number(document.getElementById("calc-income").value || 0);
     const guideFee = Number(document.getElementById("calc-guide").value || 0);
     const rr = Number(document.getElementById("calc-rr").value || 0);
     const edc = Number(document.getElementById("calc-edc").value || 0);
     const emf = Number(document.getElementById("calc-emf").value || 0);
 
-    const epos = Math.max(0, parseInt(document.getElementById("pay-epos").value, 10) || 0);
-    const upi = Math.max(0, parseInt(document.getElementById("pay-upi").value, 10) || 0);
-    const cash = Math.max(0, parseInt(document.getElementById("pay-cash").value, 10) || 0);
+    // Payment (blank => 0)
+    const epos = getIntFromInput("pay-epos");
+    const upi = getIntFromInput("pay-upi");
+    const cash = getIntFromInput("pay-cash");
 
-    const bankRemit = Math.max(0, parseInt(document.getElementById("bank-remit").value, 10) || 0);
+    const bankRemit = getIntFromInput("bank-remit");
 
     const bankRemitDateRaw = (document.getElementById("bank-remit-date")?.value || "").trim();
     const bankRemitDate = bankRemitDateRaw || dateVal;
@@ -844,6 +1043,10 @@ async function saveToDatabase(source = "package", opts = {}) {
 
       isWeekend: (dateObj.getDay() === 0 || dateObj.getDay() === 6),
       isPublicHoliday: isHolidayChecked,
+
+      // NEW fields
+      isCustomGuides,
+      customGuidesCount,
 
       income,
       guideFee,
@@ -908,9 +1111,9 @@ async function saveToDatabase(source = "package", opts = {}) {
   }
 }
 
-/* ---------------------------
+/* ==========================================================
    HISTORY LISTENER + UI + FILTERS
----------------------------- */
+========================================================== */
 function stopHistoryListener() {
   if (typeof historyUnsubscribe === "function") {
     historyUnsubscribe();
@@ -1006,9 +1209,9 @@ function renderHistoryTable() {
   }).join("");
 }
 
-/* ---------------------------
+/* ==========================================================
    EDIT / DELETE HANDLERS
----------------------------- */
+========================================================== */
 async function startEditFromHistory(docId) {
   const r = historyCache.get(docId);
   if (!r) {
@@ -1026,22 +1229,43 @@ async function startEditFromHistory(docId) {
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
+function setNumberInputBlankIfZero(id, n) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const num = Number(n || 0);
+  el.value = (num > 0) ? String(num) : "";
+}
+
 function loadRecordToForm(r) {
+  // In edit mode, avoid auto-overwriting payment values while recalculating
+  paymentAutofillEnabled = false;
+
   document.getElementById("date").value = r.dateStr || "";
+  lastSelectedDateForEntry = r.dateStr || "";
+
   document.getElementById("nationality").value = r.nationality || "indian";
 
-  document.getElementById("pkg-5-count").value = r.pkg5Count ?? 0;
-  document.getElementById("pkg-10-count").value = r.pkg10Count ?? 0;
-  document.getElementById("extra-persons").value = r.extraPersons ?? 0;
-  document.getElementById("children").value = r.children ?? 0;
+  setNumberInputBlankIfZero("pkg-5-count", r.pkg5Count ?? 0);
+  setNumberInputBlankIfZero("pkg-10-count", r.pkg10Count ?? 0);
+  setNumberInputBlankIfZero("extra-persons", r.extraPersons ?? 0);
+  setNumberInputBlankIfZero("children", r.children ?? 0);
 
   document.getElementById("is-holiday").checked = !!r.isPublicHoliday;
 
-  document.getElementById("pay-epos").value = r.payment?.epos ?? 0;
-  document.getElementById("pay-upi").value = r.payment?.upi ?? 0;
-  document.getElementById("pay-cash").value = r.payment?.cash ?? 0;
+  // Custom guides restore (Requirement #5)
+  const isCustom = !!r.isCustomGuides;
+  const chk = document.getElementById("is-custom-guides");
+  if (chk) chk.checked = isCustom;
 
-  document.getElementById("bank-remit").value = r.bankRemit ?? 0;
+  setNumberInputBlankIfZero("custom-guides-count", r.customGuidesCount ?? 0);
+  toggleCustomGuidesUI(isCustom);
+
+  // Payment restore (blank if 0)
+  setNumberInputBlankIfZero("pay-epos", r.payment?.epos ?? 0);
+  setNumberInputBlankIfZero("pay-upi", r.payment?.upi ?? 0);
+  setNumberInputBlankIfZero("pay-cash", r.payment?.cash ?? 0);
+
+  setNumberInputBlankIfZero("bank-remit", r.bankRemit ?? 0);
 
   const remitDateEl = document.getElementById("bank-remit-date");
   if (remitDateEl) remitDateEl.value = (r.bankRemitDate || r.dateStr || "");
@@ -1097,12 +1321,16 @@ function cancelEdit(silent = false) {
   currentEditDocId = null;
   hideEditBanner();
   updateSaveButtonLabel();
+
+  // After leaving edit mode, allow new-entry autofill again
+  paymentAutofillEnabled = true;
+
   if (!silent) alert("Edit cancelled.");
 }
 
-/* ---------------------------
+/* ==========================================================
    MONTHLY ABSTRACT (FY Apr->Mar)
----------------------------- */
+========================================================== */
 function generateAbstract() {
   const fy = document.getElementById("fy-select").value;
 
@@ -1216,7 +1444,7 @@ function generateAbstract() {
 }
 
 /* ==========================================
-   HOME DASHBOARD NAVIGATION LOGIC
+   HOME DASHBOARD NAVIGATION
 ========================================== */
 function openMenu(sectionId) {
   const dashboard = document.getElementById("home-dashboard");

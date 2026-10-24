@@ -79,7 +79,7 @@
       <div class="developer-credit no-print" style="margin-top: 40px;">
         Designed &amp; Developed by <span class="dev-name">MITHUN C NAIR</span>
       </div>
-      
+
       <div class="last-update no-print" id="last-update-display">Loading last update...</div>
     </div>
 
@@ -106,11 +106,31 @@
         <div class="grid-2">
           <div class="form-group">
             <label for="date">Date (തീയതി)</label>
-            <input type="date" id="date" required onchange="calculateFees()">
+            <!-- UPDATED: date change triggers reset (unless edit mode) -->
+            <input type="date" id="date" required onchange="onDateChanged()">
+
+            <!-- Wildlife week badge -->
+            <div id="wildlife-week-badge" class="wildlife-badge no-print" style="display:none;">
+              വന്യജീവി വാരാഘോഷം (Sanctuary Fee സൗജന്യം)
+            </div>
 
             <div class="holiday-box">
               <input type="checkbox" id="is-holiday" onchange="calculateFees()">
               <label for="is-holiday" class="holiday-label">മറ്റ് പൊതു അവധി ദിവസമാണോ?</label>
+            </div>
+
+            <!-- NEW: Custom Guide Count -->
+            <div class="custom-guides-toggle">
+              <input type="checkbox" id="is-custom-guides" onchange="onCustomGuidesToggle()">
+              <label for="is-custom-guides" class="custom-guides-label">
+                ഗൈഡുകളുടെ എണ്ണത്തിൽ മാറ്റമുണ്ടോ? (Custom Guide Count)
+              </label>
+            </div>
+
+            <div id="custom-guides-box" class="custom-guides-box" style="display:none;">
+              <label for="custom-guides-count">നിയോഗിച്ച ഗൈഡുകളുടെ എണ്ണം</label>
+              <input type="number" id="custom-guides-count" min="0" step="1" inputmode="numeric" value="" placeholder="0" oninput="calculateFees()">
+              <small class="muted">Guide fee = (Custom guides count) × ₹650</small>
             </div>
 
             <small class="small-note">ശനി, ഞായർ ദിവസങ്ങൾ സിസ്റ്റം തനിയെ തിരിച്ചറിയും.</small>
@@ -129,22 +149,23 @@
         <div class="grid-2">
           <div class="form-group">
             <label for="pkg-5-count">5-Member Packages</label>
-            <input type="number" id="pkg-5-count" min="0" step="1" inputmode="numeric" value="0" oninput="calculateFees()">
+            <!-- UPDATED: blank by default + placeholder=0 -->
+            <input type="number" id="pkg-5-count" min="0" step="1" inputmode="numeric" value="" placeholder="0" oninput="calculateFees()">
           </div>
           <div class="form-group">
             <label for="pkg-10-count">10-Member Packages</label>
-            <input type="number" id="pkg-10-count" min="0" step="1" inputmode="numeric" value="0" oninput="calculateFees()">
+            <input type="number" id="pkg-10-count" min="0" step="1" inputmode="numeric" value="" placeholder="0" oninput="calculateFees()">
           </div>
         </div>
 
         <div class="grid-2">
           <div class="form-group">
             <label for="extra-persons">Extra Persons (അധികമുള്ളവർ)</label>
-            <input type="number" id="extra-persons" min="0" step="1" inputmode="numeric" value="0" oninput="calculateFees()">
+            <input type="number" id="extra-persons" min="0" step="1" inputmode="numeric" value="" placeholder="0" oninput="calculateFees()">
           </div>
           <div class="form-group">
             <label for="children">Children Under 14 (സൗജന്യം)</label>
-            <input type="number" id="children" min="0" step="1" inputmode="numeric" value="0">
+            <input type="number" id="children" min="0" step="1" inputmode="numeric" value="" placeholder="0">
           </div>
         </div>
 
@@ -178,7 +199,7 @@
         <div class="grid-2 no-print">
           <button type="button" class="btn-save" id="btn-save-db-tab1" onclick="saveToDatabase('package')">Save to Database</button>
 
-          <!-- UPDATED: auto-save on Next -->
+          <!-- Auto-save on Next -->
           <button type="button" id="btn-next-to-payment" onclick="nextFromPackage()">Next: Payment Details &raquo;</button>
         </div>
 
@@ -201,15 +222,15 @@
         <div class="grid-3">
           <div class="form-group">
             <label for="pay-epos">EPOS Amount (₹)</label>
-            <input type="number" id="pay-epos" min="0" step="1" inputmode="numeric" value="0">
+            <input type="number" id="pay-epos" min="0" step="1" inputmode="numeric" value="" placeholder="0">
           </div>
           <div class="form-group">
             <label for="pay-upi">UPI Amount (₹)</label>
-            <input type="number" id="pay-upi" min="0" step="1" inputmode="numeric" value="0">
+            <input type="number" id="pay-upi" min="0" step="1" inputmode="numeric" value="" placeholder="0">
           </div>
           <div class="form-group">
             <label for="pay-cash">Cash Amount (₹)</label>
-            <input type="number" id="pay-cash" min="0" step="1" inputmode="numeric" value="0">
+            <input type="number" id="pay-cash" min="0" step="1" inputmode="numeric" value="" placeholder="0">
           </div>
         </div>
 
@@ -218,7 +239,7 @@
         <div class="grid-2">
           <div class="form-group">
             <label for="bank-remit">Amount Remitted to Bank (₹)</label>
-            <input type="number" id="bank-remit" min="0" step="1" inputmode="numeric" value="0">
+            <input type="number" id="bank-remit" min="0" step="1" inputmode="numeric" value="" placeholder="0">
           </div>
           <div class="form-group">
             <label for="bank-remit-date">Bank Remittance Date</label>
@@ -234,17 +255,15 @@
         <div class="grid-2">
           <button type="button" class="btn-grey" onclick="switchTab('package')">&laquo; Back to Package</button>
 
-          <!-- UPDATED: auto-save on Next -->
+          <!-- Auto-save on Next -->
           <button type="button" id="btn-next-to-cashbook" onclick="nextFromPayment()">Next: Cash Book (Monthly) &raquo;</button>
         </div>
 
-        <!-- NEW: payment tab status/errors -->
         <p id="pay-msg" class="db-msg no-print"></p>
       </div>
 
       <!-- SECTION: CASH BOOK (MONTHLY - DETAILED COLUMNS) -->
       <div id="content-cashbook" class="tab-content">
-        <!-- Controls (no-print) -->
         <div class="cashbook-controls no-print">
           <div class="cashbook-control">
             <label for="cb-month">Month</label>
@@ -265,7 +284,6 @@
           </div>
         </div>
 
-        <!-- Printable sheet -->
         <div class="cashbook-sheet" id="cashbook-sheet">
           <div class="cashbook-header">
             <h3>PEPPARA WILDLIFE SANCTUARY</h3>
@@ -283,13 +301,9 @@
               <thead>
                 <tr>
                   <th rowspan="2" style="width:120px;">Date<br><span class="col-code">[A]</span></th>
-
                   <th colspan="1">Income<br><span class="col-code">[B]</span></th>
-
                   <th colspan="3">Expenditure</th>
-
                   <th colspan="3">Amount received through</th>
-
                   <th rowspan="2" style="width:120px;">Amount remitted to bank<br><span class="col-code">[I]</span></th>
                   <th rowspan="2" style="width:220px;">Remarks<br><span class="col-code">[J]</span></th>
                   <th rowspan="2" class="no-print" style="width:90px;">Action</th>
@@ -355,7 +369,6 @@
           </div>
         </div>
 
-        <!-- Status message area (no-print) -->
         <p id="db-msg" class="db-msg no-print"></p>
       </div>
 
@@ -460,7 +473,7 @@
     </form>
   </div>
 
-  <!-- Non-blocking toast (for Saved/Updated messages) -->
+  <!-- Non-blocking toast -->
   <div id="toast" class="toast no-print" role="status" aria-live="polite"></div>
 
   <!-- Firebase v9 compat -->
