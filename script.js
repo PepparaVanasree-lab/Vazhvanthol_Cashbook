@@ -8,6 +8,11 @@
  * 4) Wildlife Week (Oct 2–8): Sanctuary fee FREE (RR=0) and Income reduced by RR
  * 5) Custom Guide Count override (is-custom-guides + custom-guides-count)
  *
+ * Optional additions (now included):
+ * A) Payment mismatch warning toast (EPOS+UPI+Cash != Income) on save/next (non-blocking)
+ * B) Auto-set Bank Remittance Date to selected Date when Bank Remit amount > 0
+ *    (unless user manually selected a different remittance date)
+ *
  * Existing preserved features:
  * - Firebase Firestore sync (v9 compat CDN)
  * - Collection: daily_collections
@@ -67,10 +72,13 @@ let historyUnsubscribe = null;
 let historyCache = new Map(); // docId -> data (with _id)
 
 /* ---------------------------
-   ENTRY UX STATE (NEW)
+   ENTRY UX STATE
 ---------------------------- */
 let lastSelectedDateForEntry = "";
 let paymentAutofillEnabled = true; // enabled for new entry; disabled once user edits payment fields manually
+
+// Optional feature B: bank remit date auto-set state
+let bankRemitDateManualOverride = false;
 
 /* ---------------------------
    TOAST HELPERS
@@ -196,6 +204,25 @@ window.onload = function () {
     });
   });
 
+  // Optional feature B: auto-set bank remit date when typing remit amount
+  const bankRemitEl = document.getElementById("bank-remit");
+  if (bankRemitEl) {
+    bankRemitEl.addEventListener("input", () => {
+      maybeAutoSetBankRemitDate();
+    });
+  }
+
+  // Track manual override for Bank Remittance Date
+  const bankRemitDateEl = document.getElementById("bank-remit-date");
+  if (bankRemitDateEl) {
+    bankRemitDateEl.addEventListener("input", () => {
+      updateBankRemitManualOverrideFlag();
+    });
+    bankRemitDateEl.addEventListener("change", () => {
+      updateBankRemitManualOverrideFlag();
+    });
+  }
+
   // History actions (edit/delete)
   document.getElementById("history-tbody").addEventListener("click", async (e) => {
     const btn = e.target.closest("button");
@@ -267,7 +294,7 @@ async function nextFromPayment() {
 }
 
 /* ==========================================================
-   NEW UX: DATE CHANGE RESET (Requirement #2)
+   DATE CHANGE RESET (Requirement #2)
 ========================================================== */
 function onDateChanged() {
   const dateVal = (document.getElementById("date")?.value || "").trim();
@@ -321,6 +348,9 @@ function resetEntryFormForNewDate({ keepDate = true } = {}) {
   // Reset payment auto-fill behavior for new entry
   paymentAutofillEnabled = true;
 
+  // Reset bank remit manual override
+  bankRemitDateManualOverride = false;
+
   // Hide wildlife badge immediately (calculateFees will re-show if applicable)
   const badge = document.getElementById("wildlife-week-badge");
   if (badge) badge.style.display = "none";
@@ -328,12 +358,11 @@ function resetEntryFormForNewDate({ keepDate = true } = {}) {
   // Clear status messages
   clearMessages();
 
-  // Keep date as-is (the user just selected it)
   if (!keepDate) setValIfExists("date", "");
 }
 
 /* ==========================================================
-   NEW: CUSTOM GUIDES UI (Requirement #5)
+   CUSTOM GUIDES UI (Requirement #5)
 ========================================================== */
 function onCustomGuidesToggle() {
   toggleCustomGuidesUI();
@@ -347,6 +376,44 @@ function toggleCustomGuidesUI(force) {
 
   const shouldShow = (typeof force === "boolean") ? force : !!chk.checked;
   box.style.display = shouldShow ? "block" : "none";
+}
+
+/* ==========================================================
+   Optional feature B: Bank remit auto-date
+========================================================== */
+function updateBankRemitManualOverrideFlag() {
+  const remitDateEl = document.getElementById("bank-remit-date");
+  const collectionDate = (document.getElementById("date")?.value || "").trim();
+  const chosen = (remitDateEl?.value || "").trim();
+
+  // If user clears the date, allow auto-set again
+  if (!chosen) {
+    bankRemitDateManualOverride = false;
+    return;
+  }
+
+  // Manual override only matters if chosen is different from collection date
+  bankRemitDateManualOverride = !!(collectionDate && chosen !== collectionDate);
+}
+
+function maybeAutoSetBankRemitDate() {
+  // Do not auto-set if user explicitly chose a different remittance date
+  if (bankRemitDateManualOverride) return;
+
+  const remit = getIntFromInput("bank-remit");
+  if (remit <= 0) return;
+
+  const collectionDate = (document.getElementById("date")?.value || "").trim();
+  if (!collectionDate) return;
+
+  const remitDateEl = document.getElementById("bank-remit-date");
+  if (!remitDateEl) return;
+
+  // Only set if empty OR same as collection date (safe overwrite)
+  const current = (remitDateEl.value || "").trim();
+  if (!current || current === collectionDate) {
+    remitDateEl.value = collectionDate;
+  }
 }
 
 /* ==========================================================
@@ -786,11 +853,9 @@ function formatNumber2(n) {
 /* ==========================================================
    CALCULATIONS (includes requirements #3, #4, #5)
 ========================================================== */
-
 function getIntFromInput(id) {
   const el = document.getElementById(id);
   const raw = (el?.value ?? "").toString().trim();
-  // Requirement #1: empty => 0
   return Math.max(0, parseInt(raw, 10) || 0);
 }
 
@@ -813,7 +878,6 @@ function isWildlifeWeek(dateObj) {
 function autofillUPIFromIncome({ respectUserLock = true } = {}) {
   const income = Number(document.getElementById("calc-income")?.value || 0);
 
-  // If respecting lock and user has edited payment fields, do not keep overwriting
   if (respectUserLock && !paymentAutofillEnabled) return;
 
   const eposEmptyOrZero = isBlankOrZero("pay-epos");
@@ -821,14 +885,13 @@ function autofillUPIFromIncome({ respectUserLock = true } = {}) {
   const upiEmptyOrZero = isBlankOrZero("pay-upi");
 
   if (eposEmptyOrZero && cashEmptyOrZero && upiEmptyOrZero) {
-    // fill UPI with expected income
     const upiEl = document.getElementById("pay-upi");
     if (upiEl) upiEl.value = income > 0 ? String(income) : "";
   }
 }
 
 function calculateFees() {
-  toggleCustomGuidesUI(); // ensure UI consistent
+  toggleCustomGuidesUI();
 
   const nationality = document.getElementById("nationality").value;
 
@@ -861,7 +924,7 @@ function calculateFees() {
     else guideFee = totalPackages * 650;
   }
 
-  // Base calculations (normal)
+  // Base calculations
   let income = 0, rr = 0, edc = 0;
 
   if (nationality === "indian") {
@@ -880,12 +943,10 @@ function calculateFees() {
   if (badge) badge.style.display = ww ? "inline-block" : "none";
 
   if (ww) {
-    // Visitors don't pay Sanctuary Fee, so total income reduces by standard RR
     income = Math.max(0, income - rr);
     rr = 0;
   }
 
-  // Requirement #4: EMF formula uses rr (0 when wildlife week)
   const emf = income - rr - edc - guideFee;
 
   document.getElementById("calc-income").value = income;
@@ -910,6 +971,9 @@ function calculateFees() {
 
   // Requirement #3: default UPI autofill when appropriate
   autofillUPIFromIncome({ respectUserLock: true });
+
+  // Optional feature B: if user typed bank remit amount already, keep auto-date set
+  maybeAutoSetBankRemitDate();
 }
 
 /* ==========================================================
@@ -1000,8 +1064,7 @@ async function saveToDatabase(source = "package", opts = {}) {
     const isCustomGuides = !!document.getElementById("is-custom-guides")?.checked;
     const customGuidesCount = isCustomGuides ? getIntFromInput("custom-guides-count") : 0;
 
-    // Ensure requirement #3 before saving (even if userLock is off):
-    // only fills when EPOS & Cash are blank/0 and UPI is blank/0.
+    // Ensure requirement #3 before saving (only fills if all are blank/0)
     autofillUPIFromIncome({ respectUserLock: false });
 
     const income = Number(document.getElementById("calc-income").value || 0);
@@ -1017,6 +1080,9 @@ async function saveToDatabase(source = "package", opts = {}) {
 
     const bankRemit = getIntFromInput("bank-remit");
 
+    // Optional feature B: auto-date (unless manual override)
+    maybeAutoSetBankRemitDate();
+
     const bankRemitDateRaw = (document.getElementById("bank-remit-date")?.value || "").trim();
     const bankRemitDate = bankRemitDateRaw || dateVal;
 
@@ -1029,6 +1095,10 @@ async function saveToDatabase(source = "package", opts = {}) {
     }
 
     const remarks = (document.getElementById("remarks").value || "").trim();
+
+    // Optional feature A: mismatch warning (non-blocking)
+    const payTotal = epos + upi + cash;
+    const isMismatch = (payTotal !== income);
 
     const record = {
       dateStr: dateVal,
@@ -1096,7 +1166,21 @@ async function saveToDatabase(source = "package", opts = {}) {
       : `Saved record for ${dateVal} (${nationalityLabel(nationality)}).`;
 
     setMessage(source, msg, "ok");
-    if (opts.toastOnSuccess) showToast(msg, "ok");
+
+    // Toast logic:
+    // - If mismatch: show warning toast first (non-blocking), then show success toast after it
+    // - Else: show success toast normally (if requested)
+    if (isMismatch) {
+      const warnMs = 2600;
+      const warnMsg = `Warning: EPOS+UPI+Cash (₹${payTotal}) ≠ Income (₹${income}). Please verify.`;
+      showToast(warnMsg, "err", warnMs);
+
+      if (opts.toastOnSuccess) {
+        setTimeout(() => showToast(msg, "ok", 2200), warnMs + 50);
+      }
+    } else {
+      if (opts.toastOnSuccess) showToast(msg, "ok");
+    }
 
     return { ok: true, msg, existed, docId: targetDocId };
 
@@ -1252,7 +1336,7 @@ function loadRecordToForm(r) {
 
   document.getElementById("is-holiday").checked = !!r.isPublicHoliday;
 
-  // Custom guides restore (Requirement #5)
+  // Custom guides restore
   const isCustom = !!r.isCustomGuides;
   const chk = document.getElementById("is-custom-guides");
   if (chk) chk.checked = isCustom;
@@ -1269,6 +1353,11 @@ function loadRecordToForm(r) {
 
   const remitDateEl = document.getElementById("bank-remit-date");
   if (remitDateEl) remitDateEl.value = (r.bankRemitDate || r.dateStr || "");
+
+  // Set manual override flag based on record (if remit date differs from collection date)
+  const recDate = (r.dateStr || "").trim();
+  const recRemitDate = (r.bankRemitDate || r.dateStr || "").trim();
+  bankRemitDateManualOverride = !!(recDate && recRemitDate && recRemitDate !== recDate);
 
   document.getElementById("remarks").value = r.remarks ?? "";
 
@@ -1324,6 +1413,9 @@ function cancelEdit(silent = false) {
 
   // After leaving edit mode, allow new-entry autofill again
   paymentAutofillEnabled = true;
+
+  // reset remit override (new entries)
+  bankRemitDateManualOverride = false;
 
   if (!silent) alert("Edit cancelled.");
 }
