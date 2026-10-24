@@ -491,11 +491,11 @@ button:hover{ background-color:#1b5e20; }
 .btn-back:hover{ background-color:#d5d5d5; }
 
 /* ==========================================
-   CASH BOOK (MONTHLY) STYLES
+   CASH BOOK (MONTHLY - DETAILED) STYLES
 ========================================== */
 .cashbook-controls{
   display:grid;
-  grid-template-columns: 1fr 1fr 1.6fr;
+  grid-template-columns: 1fr 1fr 1.8fr;
   gap:12px;
   align-items:end;
   margin-bottom:12px;
@@ -527,9 +527,7 @@ button:hover{ background-color:#1b5e20; }
 .cb-btn-print{ background:#1976D2; color:#fff; }
 .cb-btn-print:hover{ background:#1565C0; }
 
-.cashbook-sheet{
-  background:#fff;
-}
+.cashbook-sheet{ background:#fff; }
 
 .cashbook-header{
   text-align:center;
@@ -562,24 +560,32 @@ button:hover{ background-color:#1b5e20; }
   color:#000;
 }
 
+.col-code{
+  font-weight:800;
+  font-size:11px;
+  color:#333;
+}
+
+/* Mobile scrolling for wide table */
 .cashbook-table-wrap{
-  overflow:auto;
+  overflow-x:auto;
   border:1px solid #ddd;
   border-radius:10px;
 }
 
+/* Wide multi-column table */
 .cashbook-table{
   width:100%;
   border-collapse:collapse;
-  min-width:720px; /* allows scroll on small screens; print overrides below */
-  font-size:13px;
+  min-width:1300px; /* IMPORTANT: forces horizontal scroll on phones */
+  font-size:12px;
   color:#000;
 }
 
 .cashbook-table th,
 .cashbook-table td{
   border:1px solid #000;
-  padding:8px 8px;
+  padding:7px 6px;
   vertical-align:top;
 }
 
@@ -589,17 +595,46 @@ button:hover{ background-color:#1b5e20; }
   font-weight:900;
 }
 
+.cashbook-table td{
+  background:#fff;
+}
+
+/* Align numeric columns to the right */
 .cashbook-table td:nth-child(2),
-.cashbook-table td:nth-child(3){
+.cashbook-table td:nth-child(3),
+.cashbook-table td:nth-child(4),
+.cashbook-table td:nth-child(5),
+.cashbook-table td:nth-child(6),
+.cashbook-table td:nth-child(7),
+.cashbook-table td:nth-child(8),
+.cashbook-table td:nth-child(9){
   text-align:right;
   font-weight:900;
 }
 
+/* Date */
 .cashbook-table td:nth-child(1){
   text-align:center;
   white-space:nowrap;
+  font-weight:800;
 }
 
+/* Remarks */
+.cashbook-table td:nth-child(10){
+  text-align:left;
+  font-weight:700;
+}
+
+/* Totals row */
+.cashbook-total-row td{
+  background:#f9fafb;
+  font-weight:900;
+}
+.cashbook-total-row td{
+  border-top:2px solid #000;
+}
+
+/* Edit button in Action column */
 .cb-edit-btn{
   width:auto !important;
   margin-top:0 !important;
@@ -610,16 +645,17 @@ button:hover{ background-color:#1b5e20; }
   color:#fff;
   font-weight:900;
   cursor:pointer;
+  border:none;
 }
-
 .cb-edit-btn:hover{ background:#d97706; }
 
+/* Summary card */
 .cashbook-summary{
   margin-top:14px;
   border:1px solid #000;
   border-radius:10px;
   padding:12px 14px;
-  max-width:520px;
+  max-width:560px;
 }
 
 .cashbook-summary-row{
@@ -643,95 +679,7 @@ button:hover{ background-color:#1b5e20; }
   font-size:16px;
 }
 
-/* ---------------------------
-   Mobile Responsive
----------------------------- */
+/* Controls stack on mobile */
 @media (max-width:600px){
-  .grid-2, .grid-3{ grid-template-columns:1fr; }
-  .action-buttons{ flex-direction:column; }
-
-  .history-head{ flex-direction:column; }
-  .history-controls{ grid-template-columns:1fr; }
-
-  .cashbook-controls{
-    grid-template-columns:1fr;
-  }
-}
-
-/* Small screens: slightly tighter top bar */
-@media (max-width:380px){
-  .btn-logout-compact{ padding:8px 12px; font-size:14px; }
-  .status-badge{ padding:6px 10px; font-size:13px; }
-}
-
-/* ---------------------------
-   Print: print ONLY the active content
----------------------------- */
-@media print{
-  @page{ size:A4 portrait; margin:10mm; }
-
-  body{
-    background-color:white;
-    padding:0;
-    display:block;
-  }
-
-  .container{
-    box-shadow:none;
-    padding:0;
-    max-width:100%;
-    border:none;
-    margin-top:0;
-  }
-
-  .no-print,
-  #login-screen{
-    display:none !important;
-  }
-
-  #app-screen{ display:block !important; }
-
-  .tab-content{ display:none !important; }
-  .tab-content.active{ display:block !important; }
-
-  .preview-container{
-    border:none;
-    padding:0;
-    overflow:visible;
-  }
-
-  /* Cashbook print optimizations */
-  .cashbook-table-wrap{
-    overflow:visible !important;
-    border:none !important;
-    border-radius:0 !important;
-  }
-
-  .cashbook-table{
-    min-width:0 !important;
-    font-size:12px;
-  }
-
-  .cashbook-table th,
-  .cashbook-table td{
-    padding:6px 6px;
-  }
-
-  .cashbook-summary{
-    border-radius:0;
-    max-width:100%;
-  }
-
-  .cashbook-header h3{ font-size:16px; }
-  .cashbook-header h4{ font-size:13px; }
-
-  .cashbook-table th{
-    -webkit-print-color-adjust:exact;
-    print-color-adjust:exact;
-  }
-
-  .abstract-report-table thead th{
-    -webkit-print-color-adjust:exact;
-    print-color-adjust:exact;
-  }
+  .cashbook-controls{ grid-template-columns:1fr; }
 }
