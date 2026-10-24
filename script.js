@@ -4,6 +4,7 @@
  * Updates in this version:
  * - Auto-save on Next buttons (Package -> Payment, Payment -> Cashbook)
  * - Non-blocking toast for Saved/Updated status
+ * - GitHub "Last update" date auto-fetch (latest commit date) with fallback
  **************************************************************/
 
 /* ---------------------------
@@ -20,6 +21,15 @@ const firebaseConfig = {
 
 let firebaseApp = null;
 let firestoreDb = null;
+
+/* ---------------------------
+   GITHUB (Last update)
+---------------------------- */
+// TODO: Set your GitHub repo here:
+const GITHUB_REPO = {
+  owner: "username",
+  repo: "repository-name"
+};
 
 /* ---------------------------
    USERS (Dummy login)
@@ -64,11 +74,79 @@ function showToast(text, kind = "ok", ms = 2200) {
 }
 
 /* ---------------------------
+   GITHUB LAST UPDATE (NEW)
+   - Uses GitHub API: /commits?per_page=1
+   - Fallback to document.lastModified
+---------------------------- */
+async function updateLastUpdateFromGitHub() {
+  const el = document.getElementById("last-update-display");
+  if (!el) return;
+
+  const fallbackFromLastModified = () => {
+    try {
+      const d = new Date(document.lastModified);
+      if (!d || isNaN(d.getTime())) return null;
+      return formatDDMMYYYYSlash(d); // DD/MM/YYYY
+    } catch {
+      return null;
+    }
+  };
+
+  const safeSet = (ddmmyyyy) => {
+    if (ddmmyyyy) el.textContent = `Last update: ${ddmmyyyy}`;
+    else el.textContent = "Last update: -";
+  };
+
+  // If placeholders still present (or missing), avoid API call and just fallback.
+  const owner = (GITHUB_REPO?.owner || "").trim();
+  const repo = (GITHUB_REPO?.repo || "").trim();
+  const looksLikePlaceholder =
+    !owner || !repo || owner === "username" || repo === "repository-name";
+
+  if (looksLikePlaceholder) {
+    safeSet(fallbackFromLastModified());
+    return;
+  }
+
+  try {
+    const url = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/commits?per_page=1`;
+
+    const resp = await fetch(url, {
+      method: "GET",
+      headers: { "Accept": "application/vnd.github+json" }
+    });
+
+    if (!resp.ok) {
+      safeSet(fallbackFromLastModified());
+      return;
+    }
+
+    const data = await resp.json();
+    const iso =
+      data?.[0]?.commit?.committer?.date ||
+      data?.[0]?.commit?.author?.date;
+
+    const d = iso ? new Date(iso) : null;
+    if (!d || isNaN(d.getTime())) {
+      safeSet(fallbackFromLastModified());
+      return;
+    }
+
+    safeSet(formatDDMMYYYYSlash(d));
+  } catch {
+    safeSet(fallbackFromLastModified());
+  }
+}
+
+/* ---------------------------
    INIT
 ---------------------------- */
 window.onload = function () {
   initFirebase();
   initCashbookControls();
+
+  // NEW: Home dashboard "Last update" (non-blocking)
+  updateLastUpdateFromGitHub();
 
   // Pre-fill username + remember checkbox
   const remembered = loadRemembered();
@@ -150,7 +228,7 @@ function initFirebase() {
 }
 
 /* ==========================================================
-   AUTO-SAVE NEXT BUTTONS (NEW)
+   AUTO-SAVE NEXT BUTTONS
 ========================================================== */
 async function nextFromPackage() {
   const res = await saveToDatabase("package", { toastOnSuccess: true, toastOnError: false });
@@ -374,6 +452,7 @@ function renderCashbookMonth(showStatusMsg = true) {
     `;
   }
 
+  // ABSTRACT: Closing = (Opening + Cash[H]) - Remitted[I]
   const digital = totEPOS + totUPI;
   const closing = (opening + totCash) - totRemit;
 

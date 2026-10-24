@@ -986,3 +986,10 @@ button:disabled{
     print-color-adjust:exact !important;
   }
 }
+.last-update{
+  text-align:center;
+  margin-top:10px;
+  color:#777;
+  font-weight:700;
+  font-size:13px;
+}
