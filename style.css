@@ -693,14 +693,13 @@ button:hover{ background-color:#1b5e20; }
    PRINT (A4 PORTRAIT) - CASH BOOK CLEAN COLUMNS (A..J)
 ========================================================= */
 
-/* Put @page outside @media (best browser support) */
 @page{
   size: A4 portrait;
   margin: 5mm;
 }
 
 @media print{
-  /* 1) STRICTLY HIDE all UI/controls/toolbars */
+  /* STRICTLY HIDE all UI/controls/toolbars */
   #home-dashboard,
   #back-bar,
   .cashbook-controls,
@@ -754,7 +753,7 @@ button:hover{ background-color:#1b5e20; }
   .tab-content{ display:none !important; }
   .tab-content.active{ display:block !important; }
 
-  /* --- Cashbook header compact --- */
+  /* Cashbook header compact */
   #content-cashbook{ margin:0 !important; padding:0 !important; }
 
   #content-cashbook .cashbook-header{
@@ -763,14 +762,22 @@ button:hover{ background-color:#1b5e20; }
   #content-cashbook .cashbook-header h3{
     margin:0 !important;
     font-size:12px !important;
+    color:#000 !important;
   }
   #content-cashbook .cashbook-header h4{
     margin:1px 0 !important;
     font-size:10px !important;
+    color:#000 !important;
   }
   #content-cashbook .cashbook-monthline{
     margin:1.5mm 0 0 !important;
     font-size:10px !important;
+    color:#000 !important;
+  }
+
+  /* Hide the [A]/[B]... codes in print to keep header cleaner */
+  #content-cashbook .col-code{
+    display:none !important;
   }
 
   /* Remove scroll wrapper in print */
@@ -780,14 +787,15 @@ button:hover{ background-color:#1b5e20; }
     border-radius:0 !important;
   }
 
-  /* --- Table sizing (portrait fit) --- */
+  /* IMPORTANT:
+     Use table-layout: fixed to make % widths deterministic in print. */
   #content-cashbook .cashbook-table{
     width:100% !important;
-    min-width:0 !important;                 /* override screen min-width */
-    table-layout:fixed !important;          /* REQUIRED to respect % widths */
+    min-width:0 !important;
+    table-layout:fixed !important;
     border-collapse:collapse !important;
 
-    font-size:8.3px !important;             /* body text */
+    font-size:8.3px !important;
     line-height:1.1 !important;
     color:#000 !important;
   }
@@ -799,15 +807,15 @@ button:hover{ background-color:#1b5e20; }
     vertical-align:top !important;
   }
 
-  /* 1) Header: NO mid-word breaking + slightly smaller */
+  /* Header: prevent mid-word breaking */
   #content-cashbook .cashbook-table th{
     font-size:7.5px !important;
     font-weight:900 !important;
     text-align:center !important;
 
     white-space:normal !important;
-    word-break:normal !important;           /* prevents "Incom e" */
-    overflow-wrap:break-word !important;    /* wraps at spaces when possible */
+    word-break:normal !important;          /* prevents Incom e */
+    overflow-wrap:break-word !important;   /* wraps at word boundaries when possible */
     hyphens:none !important;
 
     background:#f2f2f2 !important;
@@ -815,75 +823,76 @@ button:hover{ background-color:#1b5e20; }
     print-color-adjust:exact;
   }
 
-  /* Ensure Action column never prints (even if present in DOM) */
+  /* Ensure Action column never prints */
   #content-cashbook .cashbook-table .no-print{
     display:none !important;
     visibility:hidden !important;
   }
 
-  /* --- 2) Explicit column widths (A..J) ---
-     Printed table has 10 visible columns:
-     1 Date (9%)
-     2..9 amounts (8 cols * 9% = 72%)
-     10 Remarks (19%)
-     Total = 100%
+  /* ---------- Explicit column widths (A..J) ----------
+     Printed visible columns are:
+     1 Date
+     2 Income
+     3 Guide
+     4 RR
+     5 EDC
+     6 EPOS
+     7 UPI
+     8 Cash
+     9 Remitted
+     10 Remarks
   */
 
-  /* Column 1: Date */
-  #content-cashbook .cashbook-table td:nth-child(1),
-  #content-cashbook .cashbook-table tfoot td:nth-child(1){
+  /* Row 1 headers: Date, Remitted, Remarks */
+  #content-cashbook .cashbook-table thead tr:nth-child(1) th:nth-child(1){ width:9% !important; }
+  /* In row 1, "Amount remitted to bank" is the 5th TH of row 1 */
+  #content-cashbook .cashbook-table thead tr:nth-child(1) th:nth-child(5){ width:9% !important; }
+  /* In row 1, "Remarks" is the 6th TH of row 1 */
+  #content-cashbook .cashbook-table thead tr:nth-child(1) th:nth-child(6){ width:19% !important; }
+
+  /* Row 2 headers: 7 amount headers (Income amount + 3 exp + 3 received) */
+  #content-cashbook .cashbook-table thead tr:nth-child(2) th{
     width:9% !important;
+  }
+
+  /* Body cell behavior:
+     - Date and numbers stay in one line
+     - Remarks wraps normally */
+  #content-cashbook .cashbook-table tbody td:nth-child(1),
+  #content-cashbook .cashbook-table tbody td:nth-child(2),
+  #content-cashbook .cashbook-table tbody td:nth-child(3),
+  #content-cashbook .cashbook-table tbody td:nth-child(4),
+  #content-cashbook .cashbook-table tbody td:nth-child(5),
+  #content-cashbook .cashbook-table tbody td:nth-child(6),
+  #content-cashbook .cashbook-table tbody td:nth-child(7),
+  #content-cashbook .cashbook-table tbody td:nth-child(8),
+  #content-cashbook .cashbook-table tbody td:nth-child(9){
     white-space:nowrap !important;
   }
 
-  /* Columns 2..9: Amount columns */
-  #content-cashbook .cashbook-table td:nth-child(2),
-  #content-cashbook .cashbook-table td:nth-child(3),
-  #content-cashbook .cashbook-table td:nth-child(4),
-  #content-cashbook .cashbook-table td:nth-child(5),
-  #content-cashbook .cashbook-table td:nth-child(6),
-  #content-cashbook .cashbook-table td:nth-child(7),
-  #content-cashbook .cashbook-table td:nth-child(8),
-  #content-cashbook .cashbook-table td:nth-child(9),
-  #content-cashbook .cashbook-table tfoot td:nth-child(2),
-  #content-cashbook .cashbook-table tfoot td:nth-child(3),
-  #content-cashbook .cashbook-table tfoot td:nth-child(4),
-  #content-cashbook .cashbook-table tfoot td:nth-child(5),
-  #content-cashbook .cashbook-table tfoot td:nth-child(6),
-  #content-cashbook .cashbook-table tfoot td:nth-child(7),
-  #content-cashbook .cashbook-table tfoot td:nth-child(8),
-  #content-cashbook .cashbook-table tfoot td:nth-child(9){
-    width:9% !important;
-    white-space:nowrap !important;          /* numbers stay one line */
-  }
-
-  /* Column 10: Remarks */
-  #content-cashbook .cashbook-table td:nth-child(10),
-  #content-cashbook .cashbook-table tfoot td:nth-child(10){
-    width:19% !important;
+  #content-cashbook .cashbook-table tbody td:nth-child(10){
     white-space:normal !important;
     word-break:normal !important;
     overflow-wrap:break-word !important;
   }
 
-  /* Keep numbers aligned right (optional but cleaner in print) */
-  #content-cashbook .cashbook-table td:nth-child(2),
-  #content-cashbook .cashbook-table td:nth-child(3),
-  #content-cashbook .cashbook-table td:nth-child(4),
-  #content-cashbook .cashbook-table td:nth-child(5),
-  #content-cashbook .cashbook-table td:nth-child(6),
-  #content-cashbook .cashbook-table td:nth-child(7),
-  #content-cashbook .cashbook-table td:nth-child(8),
-  #content-cashbook .cashbook-table td:nth-child(9){
+  /* Align number columns right */
+  #content-cashbook .cashbook-table tbody td:nth-child(2),
+  #content-cashbook .cashbook-table tbody td:nth-child(3),
+  #content-cashbook .cashbook-table tbody td:nth-child(4),
+  #content-cashbook .cashbook-table tbody td:nth-child(5),
+  #content-cashbook .cashbook-table tbody td:nth-child(6),
+  #content-cashbook .cashbook-table tbody td:nth-child(7),
+  #content-cashbook .cashbook-table tbody td:nth-child(8),
+  #content-cashbook .cashbook-table tbody td:nth-child(9){
     text-align:right !important;
   }
 
-  /* --- Page breaking improvements --- */
+  /* Page breaking improvements */
   #content-cashbook .cashbook-table thead{
-    display:table-header-group !important;  /* repeat header on page 2 */
+    display:table-header-group !important;
   }
 
-  /* Avoid cutting rows mid-way (best effort; browser may still split) */
   #content-cashbook .cashbook-table tr{
     break-inside:avoid !important;
     page-break-inside:avoid !important;
