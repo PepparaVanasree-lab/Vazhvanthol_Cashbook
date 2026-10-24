@@ -930,11 +930,11 @@ function calculateFees() {
   if (nationality === "indian") {
     income = (count5 * 1000) + (count10 * 2000) + (extraPersons * 200);
     rr = (count5 * 150) + (count10 * 300) + (extraPersons * 30);
-    edc = (count5 * 25) + (count10 * 50);
+    edc = (count5 * 25) + (count10 * 50) + (extraPersons * 5);
   } else if (nationality === "foreigner") {
     income = (count5 * 2000) + (count10 * 4000) + (extraPersons * 400);
     rr = (count5 * 525) + (count10 * 1050) + (extraPersons * 105);
-    edc = (count5 * 25) + (count10 * 50);
+    edc = (count5 * 25) + (count10 * 50) + (extraPersons * 5);
   }
 
   // Requirement #4: Wildlife Week exemption (Oct 2-8): RR = 0 and Income reduced by RR share
