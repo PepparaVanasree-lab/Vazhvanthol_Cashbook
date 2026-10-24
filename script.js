@@ -7,7 +7,17 @@
  * - Home dashboard navigation (openMenu/goHome) using .active class
  * - Remember Me + Auto-login (no password stored)
  * - History (edit/delete) + Monthly Abstract (FY Apr->Mar)
- * - NEW: Monthly Cash Book view (table for all days + summary + print)
+ * - Monthly Cash Book view (table for all days + print)
+ *
+ * Updates implemented:
+ * 1) Bank Remittance Date:
+ *    - UI: #bank-remit-date
+ *    - Firestore: bankRemitDate (defaults to dateStr)
+ *    - Cashbook: Remitted column [I] shown on bankRemitDate row
+ * 2) Cashbook ABSTRACT:
+ *    - Digital (EPOS+UPI) not part of cash-in-hand
+ *    - Closing = (Opening + Cash[H]) - Remitted[I]
+ *    - Opening is computed from all previous records (cash - remits)
  **************************************************************/
 
 /* ---------------------------
@@ -174,20 +184,11 @@ function initCashbookControls() {
   });
 }
 
-function getSelectedCashbookMonthYear() {
-  const monthSel = document.getElementById("cb-month");
-  const yearInp = document.getElementById("cb-year");
-
-  const mm = parseInt(monthSel?.value || "", 10);
-  const yyyy = parseInt(yearInp?.value || "", 10);
-
-  return { mm, yyyy };
-}
-
 /**
  * Monthly cash book table:
  * - one row per day
- * - aggregates Indian + Foreigner records for that date
+ * - aggregates Indian + Foreigner records for the *collection date* (dateStr)
+ * - remittance column [I] is shown on bankRemitDate (defaults to dateStr)
  */
 function renderCashbookMonth(showStatusMsg = true) {
   const msgEl = document.getElementById("db-msg");
@@ -216,15 +217,45 @@ function renderCashbookMonth(showStatusMsg = true) {
   const monthYearLabelEl = document.getElementById("cb-month-year-label");
   if (monthYearLabelEl) monthYearLabelEl.textContent = monthLabel;
 
-  // Index history by dateStr (YYYY-MM-DD)
+  const monthStart = new Date(yyyy, monthIndex, 1);
+  const monthEnd = new Date(yyyy, monthIndex + 1, 1);
+
+  // Index history:
+  // - byDate: by collection date (dateStr)
+  // - remitByDate: by remittance date (bankRemitDate or dateStr)
   const byDate = new Map();
+  const remitByDate = new Map();
+
+  // Compute opening cash-in-hand at month start:
+  // Opening = (sum of past Cash[H]) - (sum of past Remitted[I])
+  let opening = 0;
+
   for (const r of historyCache.values()) {
-    if (!r?.dateStr) continue;
-    if (!byDate.has(r.dateStr)) byDate.set(r.dateStr, []);
-    byDate.get(r.dateStr).push(r);
+    const cDateObj = parseLocalYMD(r?.dateStr);
+    if (cDateObj && cDateObj < monthStart) {
+      opening += Number(r.payment?.cash || 0);
+    }
+
+    const remitDateStr = (r?.bankRemitDate || r?.dateStr || "");
+    const remitDateObj = parseLocalYMD(remitDateStr);
+    if (remitDateObj && remitDateObj < monthStart) {
+      opening -= Number(r.bankRemit || 0);
+    }
+
+    // collection date indexing
+    if (r?.dateStr) {
+      if (!byDate.has(r.dateStr)) byDate.set(r.dateStr, []);
+      byDate.get(r.dateStr).push(r);
+    }
+
+    // remittance date indexing
+    if (remitDateStr) {
+      const prev = Number(remitByDate.get(remitDateStr) || 0);
+      remitByDate.set(remitDateStr, prev + Number(r.bankRemit || 0));
+    }
   }
 
-  // Monthly totals
+  // Monthly totals (B..I)
   let totIncome = 0;
   let totGuide = 0;
   let totRR = 0;
@@ -242,9 +273,9 @@ function renderCashbookMonth(showStatusMsg = true) {
     const dateStr = `${yyyy}-${mmStr}-${dd}`;
 
     const list = byDate.get(dateStr) || [];
-    const hasRecord = list.length > 0;
+    const hasCollection = list.length > 0;
 
-    // Aggregate across Indian + Foreigner if both exist
+    // Aggregate across Indian + Foreigner for that collection date
     const dayIncome = list.reduce((s, x) => s + Number(x.income || 0), 0);
     const dayGuide  = list.reduce((s, x) => s + Number(x.guideFee || 0), 0);
     const dayRR     = list.reduce((s, x) => s + Number(x.rr || 0), 0);
@@ -254,7 +285,21 @@ function renderCashbookMonth(showStatusMsg = true) {
     const dayUPI    = list.reduce((s, x) => s + Number(x.payment?.upi || 0), 0);
     const dayCash   = list.reduce((s, x) => s + Number(x.payment?.cash || 0), 0);
 
-    const dayRemit  = list.reduce((s, x) => s + Number(x.bankRemit || 0), 0);
+    // IMPORTANT: Remittance shown on bankRemitDate row
+    const dayRemit = Number(remitByDate.get(dateStr) || 0);
+    const hasRemit = dayRemit > 0;
+
+    // Totals: income/exp/received totals are by collection date
+    totIncome += dayIncome;
+    totGuide  += dayGuide;
+    totRR     += dayRR;
+    totEDC    += dayEDC;
+    totEPOS   += dayEPOS;
+    totUPI    += dayUPI;
+    totCash   += dayCash;
+
+    // Remit totals: by remittance date (row dateStr)
+    totRemit  += dayRemit;
 
     let dayRemarks = list
       .map(x => (x.remarks || "").trim())
@@ -262,22 +307,10 @@ function renderCashbookMonth(showStatusMsg = true) {
       .join(" | ");
     if (!dayRemarks) dayRemarks = "-";
 
-    if (hasRecord) {
-      totIncome += dayIncome;
-      totGuide  += dayGuide;
-      totRR     += dayRR;
-      totEDC    += dayEDC;
-      totEPOS   += dayEPOS;
-      totUPI    += dayUPI;
-      totCash   += dayCash;
-      totRemit  += dayRemit;
-    }
-
     // Action column:
-    // - if exactly one record exists: edit that doc
-    // - if two records exist: open History filtered to the date (so user can choose)
+    // Only for collection records (since remittance might belong to earlier dates)
     let actionCell = "";
-    if (hasRecord) {
+    if (hasCollection) {
       if (list.length === 1) {
         actionCell = `
           <button type="button"
@@ -298,15 +331,15 @@ function renderCashbookMonth(showStatusMsg = true) {
     rowsHtml += `
       <tr>
         <td>${dateLabel}</td>
-        <td>${hasRecord ? formatNumber2(dayIncome) : "-"}</td>
-        <td>${hasRecord ? formatNumber2(dayGuide) : "-"}</td>
-        <td>${hasRecord ? formatNumber2(dayRR) : "-"}</td>
-        <td>${hasRecord ? formatNumber2(dayEDC) : "-"}</td>
-        <td>${hasRecord ? formatNumber2(dayEPOS) : "-"}</td>
-        <td>${hasRecord ? formatNumber2(dayUPI) : "-"}</td>
-        <td>${hasRecord ? formatNumber2(dayCash) : "-"}</td>
-        <td>${hasRecord ? formatNumber2(dayRemit) : "-"}</td>
-        <td>${hasRecord ? escapeHtml(dayRemarks) : "-"}</td>
+        <td>${hasCollection ? formatNumber2(dayIncome) : "-"}</td>
+        <td>${hasCollection ? formatNumber2(dayGuide) : "-"}</td>
+        <td>${hasCollection ? formatNumber2(dayRR) : "-"}</td>
+        <td>${hasCollection ? formatNumber2(dayEDC) : "-"}</td>
+        <td>${hasCollection ? formatNumber2(dayEPOS) : "-"}</td>
+        <td>${hasCollection ? formatNumber2(dayUPI) : "-"}</td>
+        <td>${hasCollection ? formatNumber2(dayCash) : "-"}</td>
+        <td>${hasRemit ? formatNumber2(dayRemit) : "-"}</td>
+        <td>${hasCollection ? escapeHtml(dayRemarks) : "-"}</td>
         <td class="no-print" style="text-align:center;">${actionCell}</td>
       </tr>
     `;
@@ -335,14 +368,17 @@ function renderCashbookMonth(showStatusMsg = true) {
     `;
   }
 
-  // ABSTRACT / SUMMARY section
-  const opening = 0;
-  const closing = opening + totIncome - totRemit;
+  // ABSTRACT calculations:
+  // Closing Balance = (Opening + Cash[H]) - Remitted[I]
+  const digital = totEPOS + totUPI;
+  const closing = (opening + totCash) - totRemit;
 
-  setText("cb-open",  `₹${formatNumber2(opening)}`);
-  setText("cb-income",`₹${formatNumber2(totIncome)}`);
-  setText("cb-remit", `₹${formatNumber2(totRemit)}`);
-  setText("cb-close", `₹${formatNumber2(closing)}`);
+  setText("cb-open",    `₹${formatNumber2(opening)}`);
+  setText("cb-income",  `₹${formatNumber2(totIncome)}`);
+  setText("cb-digital", `₹${formatNumber2(digital)}`);
+  setText("cb-cash",    `₹${formatNumber2(totCash)}`);
+  setText("cb-remit",   `₹${formatNumber2(totRemit)}`);
+  setText("cb-close",   `₹${formatNumber2(closing)}`);
 
   // Optional status message
   if (msgEl && showStatusMsg) {
@@ -678,7 +714,19 @@ async function saveToDatabase(source = "package") {
     const epos = Math.max(0, parseInt(document.getElementById("pay-epos").value, 10) || 0);
     const upi = Math.max(0, parseInt(document.getElementById("pay-upi").value, 10) || 0);
     const cash = Math.max(0, parseInt(document.getElementById("pay-cash").value, 10) || 0);
+
     const bankRemit = Math.max(0, parseInt(document.getElementById("bank-remit").value, 10) || 0);
+
+    // NEW: bank remittance date (defaults to collection date if blank)
+    const bankRemitDateRaw = (document.getElementById("bank-remit-date")?.value || "").trim();
+    const bankRemitDate = bankRemitDateRaw || dateVal;
+
+    const bankRemitDateObj = parseLocalYMD(bankRemitDate);
+    if (!bankRemitDateObj || isNaN(bankRemitDateObj.getTime())) {
+      setMessage(source, "Invalid Bank Remittance Date.", "err");
+      return;
+    }
+
     const remarks = (document.getElementById("remarks").value || "").trim();
 
     const record = {
@@ -702,7 +750,9 @@ async function saveToDatabase(source = "package") {
       emf,
 
       payment: { epos, upi, cash },
+
       bankRemit,
+      bankRemitDate, // NEW FIELD (string YYYY-MM-DD)
       remarks,
 
       clientSavedAt: new Date().toISOString(),
@@ -887,6 +937,11 @@ function loadRecordToForm(r) {
   document.getElementById("pay-cash").value = r.payment?.cash ?? 0;
 
   document.getElementById("bank-remit").value = r.bankRemit ?? 0;
+
+  // NEW: bank remittance date (default to collection date for older records)
+  const remitDateEl = document.getElementById("bank-remit-date");
+  if (remitDateEl) remitDateEl.value = (r.bankRemitDate || r.dateStr || "");
+
   document.getElementById("remarks").value = r.remarks ?? "";
 
   calculateFees();
@@ -1081,7 +1136,6 @@ function openMenu(sectionId) {
 
   // Trigger section-specific refresh
   if (sectionId === "content-cashbook") {
-    // Do not auto-print; just render current month selection
     renderCashbookMonth(false);
   }
   if (sectionId === "content-abstract") generateAbstract();

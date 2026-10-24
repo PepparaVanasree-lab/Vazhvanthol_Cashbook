@@ -211,10 +211,19 @@
         </div>
 
         <div class="section-title">Bank Remittance & Remarks</div>
-        <div class="form-group">
-          <label for="bank-remit">Amount Remitted to Bank (₹)</label>
-          <input type="number" id="bank-remit" min="0" step="1" inputmode="numeric" value="0">
+
+        <!-- UPDATED: Amount + Bank Remittance Date (side-by-side) -->
+        <div class="grid-2">
+          <div class="form-group">
+            <label for="bank-remit">Amount Remitted to Bank (₹)</label>
+            <input type="number" id="bank-remit" min="0" step="1" inputmode="numeric" value="0">
+          </div>
+          <div class="form-group">
+            <label for="bank-remit-date">Bank Remittance Date</label>
+            <input type="date" id="bank-remit-date">
+          </div>
         </div>
+
         <div class="form-group">
           <label for="remarks">Remarks / Notes</label>
           <input type="text" id="remarks" placeholder="Enter remarks if any">
@@ -227,107 +236,121 @@
       </div>
 
       <!-- SECTION: CASH BOOK (MONTHLY - DETAILED COLUMNS) -->
-<div id="content-cashbook" class="tab-content">
-  <!-- Controls (no-print) -->
-  <div class="cashbook-controls no-print">
-    <div class="cashbook-control">
-      <label for="cb-month">Month</label>
-      <select id="cb-month"></select>
-    </div>
+      <div id="content-cashbook" class="tab-content">
+        <!-- Controls (no-print) -->
+        <div class="cashbook-controls no-print">
+          <div class="cashbook-control">
+            <label for="cb-month">Month</label>
+            <select id="cb-month"></select>
+          </div>
 
-    <div class="cashbook-control">
-      <label for="cb-year">Year</label>
-      <input type="number" id="cb-year" min="2000" max="2100" step="1" inputmode="numeric" placeholder="2026">
-    </div>
+          <div class="cashbook-control">
+            <label for="cb-year">Year</label>
+            <input type="number" id="cb-year" min="2000" max="2100" step="1" inputmode="numeric" placeholder="2026">
+          </div>
 
-    <div class="cashbook-control cashbook-control-actions">
-      <label>&nbsp;</label>
-      <div class="cashbook-btn-row">
-        <button type="button" class="cb-btn cb-btn-load" id="cb-load-btn">LOAD</button>
-        <button type="button" class="cb-btn cb-btn-print" id="cb-print-btn">PDF (Preview &amp; Print)</button>
+          <div class="cashbook-control cashbook-control-actions">
+            <label>&nbsp;</label>
+            <div class="cashbook-btn-row">
+              <button type="button" class="cb-btn cb-btn-load" id="cb-load-btn">LOAD</button>
+              <button type="button" class="cb-btn cb-btn-print" id="cb-print-btn">PDF (Preview &amp; Print)</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Printable sheet -->
+        <div class="cashbook-sheet" id="cashbook-sheet">
+          <div class="cashbook-header">
+            <h3>PEPPARA WILDLIFE SANCTUARY</h3>
+            <h4>CHATHANCODE ECO-DEVELOPMENT COMMITTEE</h4>
+            <h4>VAZHVANTHOL WATERFALLS VISIT</h4>
+            <h4 class="cashbook-title-underline">Cash Book</h4>
+
+            <p class="cashbook-monthline">
+              Month &amp; Year: <span id="cb-month-year-label">-</span>
+            </p>
+          </div>
+
+          <div class="cashbook-table-wrap">
+            <table class="cashbook-table" id="cb-table">
+              <thead>
+                <tr>
+                  <th rowspan="2" style="width:120px;">Date<br><span class="col-code">[A]</span></th>
+
+                  <th colspan="1">Income<br><span class="col-code">[B]</span></th>
+
+                  <th colspan="3">Expenditure</th>
+
+                  <th colspan="3">Amount received through</th>
+
+                  <th rowspan="2" style="width:120px;">Amount remitted to bank<br><span class="col-code">[I]</span></th>
+                  <th rowspan="2" style="width:220px;">Remarks<br><span class="col-code">[J]</span></th>
+                  <th rowspan="2" class="no-print" style="width:90px;">Action</th>
+                </tr>
+                <tr>
+                  <th>Amount</th>
+
+                  <th>Guide fees<br><span class="col-code">[C]</span></th>
+                  <th>Sanctuary entrance fee<br><span class="col-code">[D]</span></th>
+                  <th>EDC share<br><span class="col-code">[E]</span></th>
+
+                  <th>EPOS<br><span class="col-code">[F]</span></th>
+                  <th>UPI<br><span class="col-code">[G]</span></th>
+                  <th>Cash<br><span class="col-code">[H]</span></th>
+                </tr>
+              </thead>
+
+              <tbody id="cb-tbody">
+                <tr>
+                  <td colspan="11" class="muted">Select Month/Year and click LOAD.</td>
+                </tr>
+              </tbody>
+
+              <tfoot id="cb-tfoot"></tfoot>
+            </table>
+          </div>
+
+          <!-- UPDATED: ABSTRACT TABLE (replaces old summary card) -->
+          <div class="cashbook-abstract-wrap" id="cb-summary">
+            <table class="cashbook-abstract-table" id="cb-abstract-table">
+              <thead>
+                <tr>
+                  <th colspan="2">ABSTRACT</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="label">Opening Balance</td>
+                  <td class="value" id="cb-open">₹0.00</td>
+                </tr>
+                <tr>
+                  <td class="label">Income on this month (B)</td>
+                  <td class="value" id="cb-income">₹0.00</td>
+                </tr>
+                <tr>
+                  <td class="label">Amount received via EPOS &amp; UPI (F+G)</td>
+                  <td class="value" id="cb-digital">₹0.00</td>
+                </tr>
+                <tr>
+                  <td class="label">Amount received in Cash (H)</td>
+                  <td class="value" id="cb-cash">₹0.00</td>
+                </tr>
+                <tr>
+                  <td class="label">Amount remitted to bank (I)</td>
+                  <td class="value" id="cb-remit">₹0.00</td>
+                </tr>
+                <tr class="cb-closing-row">
+                  <td class="label">Closing Balance</td>
+                  <td class="value" id="cb-close">₹0.00</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Status message area (no-print) -->
+        <p id="db-msg" class="db-msg no-print"></p>
       </div>
-    </div>
-  </div>
-
-  <!-- Printable sheet -->
-  <div class="cashbook-sheet" id="cashbook-sheet">
-    <div class="cashbook-header">
-      <h3>PEPPARA WILDLIFE SANCTUARY</h3>
-      <h4>CHATHANCODE ECO-DEVELOPMENT COMMITTEE</h4>
-      <h4>VAZHVANTHOL WATERFALLS VISIT</h4>
-      <h4 class="cashbook-title-underline">Cash Book</h4>
-
-      <p class="cashbook-monthline">
-        Month &amp; Year: <span id="cb-month-year-label">-</span>
-      </p>
-    </div>
-
-    <div class="cashbook-table-wrap">
-      <table class="cashbook-table" id="cb-table">
-        <thead>
-          <tr>
-            <th rowspan="2" style="width:120px;">Date<br><span class="col-code">[A]</span></th>
-
-            <th colspan="1">Income<br><span class="col-code">[B]</span></th>
-
-            <th colspan="3">Expenditure</th>
-
-            <th colspan="3">Amount received through</th>
-
-            <th rowspan="2" style="width:120px;">Amount remitted to bank<br><span class="col-code">[I]</span></th>
-            <th rowspan="2" style="width:220px;">Remarks<br><span class="col-code">[J]</span></th>
-            <th rowspan="2" class="no-print" style="width:90px;">Action</th>
-          </tr>
-          <tr>
-            <th>Amount</th>
-
-            <th>Guide fees<br><span class="col-code">[C]</span></th>
-            <th>Sanctuary entrance fee<br><span class="col-code">[D]</span></th>
-            <th>EDC share<br><span class="col-code">[E]</span></th>
-
-            <th>EPOS<br><span class="col-code">[F]</span></th>
-            <th>UPI<br><span class="col-code">[G]</span></th>
-            <th>Cash<br><span class="col-code">[H]</span></th>
-          </tr>
-        </thead>
-
-        <tbody id="cb-tbody">
-          <tr>
-            <td colspan="11" class="muted">Select Month/Year and click LOAD.</td>
-          </tr>
-        </tbody>
-
-        <tfoot id="cb-tfoot"></tfoot>
-      </table>
-    </div>
-
-    <!-- ABSTRACT / SUMMARY -->
-    <div class="cashbook-summary" id="cb-summary">
-      <div class="cashbook-summary-row">
-        <span>Opening Balance</span>
-        <span id="cb-open">₹0.00</span>
-      </div>
-
-      <div class="cashbook-summary-row">
-        <span>Income on this month</span>
-        <span id="cb-income">₹0.00</span>
-      </div>
-
-      <div class="cashbook-summary-row">
-        <span>Remittance this month</span>
-        <span id="cb-remit">₹0.00</span>
-      </div>
-
-      <div class="cashbook-summary-row cashbook-summary-strong">
-        <span>Closing Balance</span>
-        <span id="cb-close">₹0.00</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- Status message area (no-print) -->
-  <p id="db-msg" class="db-msg no-print"></p>
-</div>
 
       <!-- SECTION: HISTORY -->
       <div id="content-history" class="tab-content">
