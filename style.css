@@ -111,6 +111,10 @@ button{
   transition:0.3s;
 }
 button:hover{ background-color:#1b5e20; }
+button:disabled{
+  opacity:0.65;
+  cursor:not-allowed;
+}
 
 .action-buttons{
   display:flex;
@@ -136,6 +140,34 @@ button:hover{ background-color:#1b5e20; }
 
 /* Default screen states */
 #app-screen{ display:none; }
+
+/* ---------------------------
+   Toast (non-blocking status)
+---------------------------- */
+.toast{
+  position:fixed;
+  left:50%;
+  bottom:18px;
+  transform:translateX(-50%);
+  z-index:9999;
+
+  min-width:260px;
+  max-width:min(560px, calc(100vw - 30px));
+  padding:10px 14px;
+
+  border-radius:12px;
+  color:#fff;
+  background:#1b5e20;
+  box-shadow:0 10px 25px rgba(0,0,0,0.18);
+
+  font-weight:900;
+  font-size:14px;
+  line-height:1.2;
+
+  display:none;
+}
+.toast.show{ display:block; }
+.toast.err{ background:#b71c1c; }
 
 /* ---------------------------
    Login helpers
@@ -737,7 +769,8 @@ button:hover{ background-color:#1b5e20; }
   .top-action-bar,
   .menu-buttons,
   .developer-credit,
-  .edit-banner{
+  .edit-banner,
+  .toast{
     display:none !important;
     visibility:hidden !important;
   }

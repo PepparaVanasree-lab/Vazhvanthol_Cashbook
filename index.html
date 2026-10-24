@@ -94,7 +94,6 @@
       </div>
       <div class="edit-actions">
         <button type="button" class="btn-small btn-grey" onclick="cancelEdit()">Cancel Edit</button>
-        <!-- UPDATED: Save/Update happens via Package tab button -->
         <button type="button" class="btn-small btn-print" onclick="switchTab('package')">Go to Save/Update</button>
       </div>
     </div>
@@ -176,7 +175,9 @@
 
         <div class="grid-2 no-print">
           <button type="button" class="btn-save" id="btn-save-db-tab1" onclick="saveToDatabase('package')">Save to Database</button>
-          <button type="button" onclick="switchTab('payment')">Next: Payment Details &raquo;</button>
+
+          <!-- UPDATED: auto-save on Next -->
+          <button type="button" id="btn-next-to-payment" onclick="nextFromPackage()">Next: Payment Details &raquo;</button>
         </div>
 
         <p id="pkg-msg" class="db-msg no-print"></p>
@@ -212,7 +213,6 @@
 
         <div class="section-title">Bank Remittance & Remarks</div>
 
-        <!-- UPDATED: Amount + Bank Remittance Date (side-by-side) -->
         <div class="grid-2">
           <div class="form-group">
             <label for="bank-remit">Amount Remitted to Bank (₹)</label>
@@ -231,8 +231,13 @@
 
         <div class="grid-2">
           <button type="button" class="btn-grey" onclick="switchTab('package')">&laquo; Back to Package</button>
-          <button type="button" onclick="switchTab('cashbook')">Next: Cash Book (Monthly) &raquo;</button>
+
+          <!-- UPDATED: auto-save on Next -->
+          <button type="button" id="btn-next-to-cashbook" onclick="nextFromPayment()">Next: Cash Book (Monthly) &raquo;</button>
         </div>
+
+        <!-- NEW: payment tab status/errors -->
+        <p id="pay-msg" class="db-msg no-print"></p>
       </div>
 
       <!-- SECTION: CASH BOOK (MONTHLY - DETAILED COLUMNS) -->
@@ -310,7 +315,7 @@
             </table>
           </div>
 
-          <!-- UPDATED: ABSTRACT TABLE (replaces old summary card) -->
+          <!-- ABSTRACT -->
           <div class="cashbook-abstract-wrap" id="cb-summary">
             <table class="cashbook-abstract-table" id="cb-abstract-table">
               <thead>
@@ -452,6 +457,9 @@
       </div>
     </form>
   </div>
+
+  <!-- Non-blocking toast (for Saved/Updated messages) -->
+  <div id="toast" class="toast no-print" role="status" aria-live="polite"></div>
 
   <!-- Firebase v9 compat -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>

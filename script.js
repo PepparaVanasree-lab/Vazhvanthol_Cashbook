@@ -1,23 +1,9 @@
 /**************************************************************
  * Vazhvanthol Eco Tourism Cash Book
  *
- * Key features:
- * - Firestore collection: daily_collections
- * - Doc ID: `${dateVal}_${nationality}` (e.g., 2026-10-22_indian)
- * - Home dashboard navigation (openMenu/goHome) using .active class
- * - Remember Me + Auto-login (no password stored)
- * - History (edit/delete) + Monthly Abstract (FY Apr->Mar)
- * - Monthly Cash Book view (table for all days + print)
- *
- * Updates implemented:
- * 1) Bank Remittance Date:
- *    - UI: #bank-remit-date
- *    - Firestore: bankRemitDate (defaults to dateStr)
- *    - Cashbook: Remitted column [I] shown on bankRemitDate row
- * 2) Cashbook ABSTRACT:
- *    - Digital (EPOS+UPI) not part of cash-in-hand
- *    - Closing = (Opening + Cash[H]) - Remitted[I]
- *    - Opening is computed from all previous records (cash - remits)
+ * Updates in this version:
+ * - Auto-save on Next buttons (Package -> Payment, Payment -> Cashbook)
+ * - Non-blocking toast for Saved/Updated status
  **************************************************************/
 
 /* ---------------------------
@@ -55,6 +41,27 @@ let currentUser = null;
 let currentEditDocId = null;
 let historyUnsubscribe = null;
 let historyCache = new Map(); // docId -> data (with _id)
+
+/* ---------------------------
+   TOAST HELPERS
+---------------------------- */
+let toastTimer = null;
+
+function showToast(text, kind = "ok", ms = 2200) {
+  const el = document.getElementById("toast");
+  if (!el) return;
+
+  el.textContent = text || "";
+  el.classList.remove("err");
+  if (kind === "err") el.classList.add("err");
+
+  el.classList.add("show");
+
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    el.classList.remove("show");
+  }, ms);
+}
 
 /* ---------------------------
    INIT
@@ -118,7 +125,7 @@ window.onload = function () {
 
   // AUTO-LOGIN
   if (remembered?.username) {
-    const shouldAutoLogin = (remembered.autoLogin !== false); // backward compatible default true
+    const shouldAutoLogin = (remembered.autoLogin !== false);
     const userStillExists = !!users[remembered.username];
     if (shouldAutoLogin && userStillExists) autoLoginUser(remembered.username);
     else if (shouldAutoLogin && !userStillExists) clearRemembered();
@@ -140,6 +147,19 @@ function initFirebase() {
   } catch (e) {
     console.error("Firebase init failed:", e);
   }
+}
+
+/* ==========================================================
+   AUTO-SAVE NEXT BUTTONS (NEW)
+========================================================== */
+async function nextFromPackage() {
+  const res = await saveToDatabase("package", { toastOnSuccess: true, toastOnError: false });
+  if (res.ok) switchTab("payment");
+}
+
+async function nextFromPayment() {
+  const res = await saveToDatabase("payment", { toastOnSuccess: true, toastOnError: false });
+  if (res.ok) switchTab("cashbook");
 }
 
 /* ---------------------------
@@ -211,23 +231,19 @@ function renderCashbookMonth(showStatusMsg = true) {
   }
 
   const monthIndex = mm - 1;
-  const daysInMonth = new Date(yyyy, mm, 0).getDate(); // last day of selected month
+  const daysInMonth = new Date(yyyy, mm, 0).getDate();
   const monthLabel = new Date(yyyy, monthIndex, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
   const monthYearLabelEl = document.getElementById("cb-month-year-label");
   if (monthYearLabelEl) monthYearLabelEl.textContent = monthLabel;
 
   const monthStart = new Date(yyyy, monthIndex, 1);
-  const monthEnd = new Date(yyyy, monthIndex + 1, 1);
 
   // Index history:
-  // - byDate: by collection date (dateStr)
-  // - remitByDate: by remittance date (bankRemitDate or dateStr)
   const byDate = new Map();
   const remitByDate = new Map();
 
-  // Compute opening cash-in-hand at month start:
-  // Opening = (sum of past Cash[H]) - (sum of past Remitted[I])
+  // Opening cash-in-hand at month start:
   let opening = 0;
 
   for (const r of historyCache.values()) {
@@ -242,20 +258,18 @@ function renderCashbookMonth(showStatusMsg = true) {
       opening -= Number(r.bankRemit || 0);
     }
 
-    // collection date indexing
     if (r?.dateStr) {
       if (!byDate.has(r.dateStr)) byDate.set(r.dateStr, []);
       byDate.get(r.dateStr).push(r);
     }
 
-    // remittance date indexing
     if (remitDateStr) {
       const prev = Number(remitByDate.get(remitDateStr) || 0);
       remitByDate.set(remitDateStr, prev + Number(r.bankRemit || 0));
     }
   }
 
-  // Monthly totals (B..I)
+  // Monthly totals
   let totIncome = 0;
   let totGuide = 0;
   let totRR = 0;
@@ -275,7 +289,6 @@ function renderCashbookMonth(showStatusMsg = true) {
     const list = byDate.get(dateStr) || [];
     const hasCollection = list.length > 0;
 
-    // Aggregate across Indian + Foreigner for that collection date
     const dayIncome = list.reduce((s, x) => s + Number(x.income || 0), 0);
     const dayGuide  = list.reduce((s, x) => s + Number(x.guideFee || 0), 0);
     const dayRR     = list.reduce((s, x) => s + Number(x.rr || 0), 0);
@@ -285,11 +298,9 @@ function renderCashbookMonth(showStatusMsg = true) {
     const dayUPI    = list.reduce((s, x) => s + Number(x.payment?.upi || 0), 0);
     const dayCash   = list.reduce((s, x) => s + Number(x.payment?.cash || 0), 0);
 
-    // IMPORTANT: Remittance shown on bankRemitDate row
     const dayRemit = Number(remitByDate.get(dateStr) || 0);
     const hasRemit = dayRemit > 0;
 
-    // Totals: income/exp/received totals are by collection date
     totIncome += dayIncome;
     totGuide  += dayGuide;
     totRR     += dayRR;
@@ -297,8 +308,6 @@ function renderCashbookMonth(showStatusMsg = true) {
     totEPOS   += dayEPOS;
     totUPI    += dayUPI;
     totCash   += dayCash;
-
-    // Remit totals: by remittance date (row dateStr)
     totRemit  += dayRemit;
 
     let dayRemarks = list
@@ -307,8 +316,6 @@ function renderCashbookMonth(showStatusMsg = true) {
       .join(" | ");
     if (!dayRemarks) dayRemarks = "-";
 
-    // Action column:
-    // Only for collection records (since remittance might belong to earlier dates)
     let actionCell = "";
     if (hasCollection) {
       if (list.length === 1) {
@@ -349,7 +356,6 @@ function renderCashbookMonth(showStatusMsg = true) {
     tbody.innerHTML = rowsHtml || `<tr><td colspan="11" class="muted">No rows.</td></tr>`;
   }
 
-  // TOTAL row (tfoot)
   if (tfoot) {
     tfoot.innerHTML = `
       <tr class="cashbook-total-row">
@@ -368,8 +374,6 @@ function renderCashbookMonth(showStatusMsg = true) {
     `;
   }
 
-  // ABSTRACT calculations:
-  // Closing Balance = (Opening + Cash[H]) - Remitted[I]
   const digital = totEPOS + totUPI;
   const closing = (opening + totCash) - totRemit;
 
@@ -380,7 +384,6 @@ function renderCashbookMonth(showStatusMsg = true) {
   setText("cb-remit",   `₹${formatNumber2(totRemit)}`);
   setText("cb-close",   `₹${formatNumber2(closing)}`);
 
-  // Optional status message
   if (msgEl && showStatusMsg) {
     msgEl.textContent = `Cash Book loaded for ${monthLabel}.`;
     msgEl.classList.remove("err");
@@ -431,9 +434,7 @@ function loadRemembered() {
     const obj = JSON.parse(raw);
     if (!obj?.username) return null;
 
-    // Backward compatibility: old format was { username }
     if (typeof obj.autoLogin === "undefined") obj.autoLogin = true;
-
     return obj;
   } catch {
     return null;
@@ -441,7 +442,6 @@ function loadRemembered() {
 }
 
 function saveRemembered(username) {
-  // password NOT stored
   localStorage.setItem(REMEMBER_LS_KEY, JSON.stringify({ username, autoLogin: true }));
 }
 
@@ -582,7 +582,7 @@ function formatNumber2(n) {
 }
 
 /* ---------------------------
-   CALCULATIONS (VERIFIED)
+   CALCULATIONS
 ---------------------------- */
 function calculateFees() {
   const nationality = document.getElementById("nationality").value;
@@ -598,7 +598,7 @@ function calculateFees() {
 
   let isWeekend = false;
   if (dateObj) {
-    const dayOfWeek = dateObj.getDay(); // 0 Sun, 6 Sat
+    const dayOfWeek = dateObj.getDay();
     isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
   }
 
@@ -643,27 +643,42 @@ function calculateFees() {
 }
 
 /* ---------------------------
-   SAVE / UPDATE (STRICT UPSERT)
+   SAVE / UPDATE (returns result)
 ---------------------------- */
 function clearMessages() {
   const a = document.getElementById("pkg-msg");
   const b = document.getElementById("db-msg");
+  const c = document.getElementById("pay-msg");
   if (a) { a.textContent = ""; a.classList.remove("ok", "err"); }
   if (b) { b.textContent = ""; b.classList.remove("ok", "err"); }
+  if (c) { c.textContent = ""; c.classList.remove("ok", "err"); }
 }
 
 function setMessage(source, text, kind) {
-  const el = (source === "package")
-    ? document.getElementById("pkg-msg")
-    : document.getElementById("db-msg");
+  const id =
+    (source === "package") ? "pkg-msg" :
+    (source === "payment") ? "pay-msg" :
+    "db-msg";
 
+  const el = document.getElementById(id);
   if (!el) return;
+
   el.textContent = text || "";
   el.classList.remove("ok", "err");
   if (kind) el.classList.add(kind);
 }
 
+function setNavSaving(isSaving) {
+  const ids = ["btn-next-to-payment", "btn-next-to-cashbook"];
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = !!isSaving;
+  });
+}
+
 function setSavingUI(isSaving, label) {
+  setNavSaving(isSaving);
+
   const btnTab1 = document.getElementById("btn-save-db-tab1");
   if (btnTab1) {
     btnTab1.disabled = isSaving;
@@ -672,12 +687,15 @@ function setSavingUI(isSaving, label) {
   if (!isSaving) updateSaveButtonLabel();
 }
 
-async function saveToDatabase(source = "package") {
+async function saveToDatabase(source = "package", opts = {}) {
+  // opts.toastOnSuccess (bool), opts.toastOnError (bool)
   clearMessages();
 
   if (!firestoreDb) {
-    setMessage(source, "Firebase not initialized. Check Firebase scripts/config.", "err");
-    return;
+    const m = "Firebase not initialized. Check Firebase scripts/config.";
+    setMessage(source, m, "err");
+    if (opts.toastOnError) showToast(m, "err");
+    return { ok: false, msg: m };
   }
 
   try {
@@ -685,8 +703,10 @@ async function saveToDatabase(source = "package") {
 
     const dateVal = document.getElementById("date").value;
     if (!dateVal) {
-      setMessage(source, "ദയവായി തീയതി തിരഞ്ഞെടുക്കുക!", "err");
-      return;
+      const m = "ദയവായി തീയതി തിരഞ്ഞെടുക്കുക!";
+      setMessage(source, m, "err");
+      if (opts.toastOnError) showToast(m, "err");
+      return { ok: false, msg: m };
     }
 
     const dateObj = parseLocalYMD(dateVal);
@@ -699,8 +719,10 @@ async function saveToDatabase(source = "package") {
     const totalPackages = count5 + count10;
 
     if (totalPackages <= 0) {
-      setMessage(source, "കുറഞ്ഞത് ഒരു പാക്കേജ് എങ്കിലും നൽകണം (5/10).", "err");
-      return;
+      const m = "കുറഞ്ഞത് ഒരു പാക്കേജ് എങ്കിലും നൽകണം (5/10).";
+      setMessage(source, m, "err");
+      if (opts.toastOnError) showToast(m, "err");
+      return { ok: false, msg: m };
     }
 
     const isHolidayChecked = document.getElementById("is-holiday").checked;
@@ -717,14 +739,15 @@ async function saveToDatabase(source = "package") {
 
     const bankRemit = Math.max(0, parseInt(document.getElementById("bank-remit").value, 10) || 0);
 
-    // NEW: bank remittance date (defaults to collection date if blank)
     const bankRemitDateRaw = (document.getElementById("bank-remit-date")?.value || "").trim();
     const bankRemitDate = bankRemitDateRaw || dateVal;
 
     const bankRemitDateObj = parseLocalYMD(bankRemitDate);
     if (!bankRemitDateObj || isNaN(bankRemitDateObj.getTime())) {
-      setMessage(source, "Invalid Bank Remittance Date.", "err");
-      return;
+      const m = "Invalid Bank Remittance Date.";
+      setMessage(source, m, "err");
+      if (opts.toastOnError) showToast(m, "err");
+      return { ok: false, msg: m };
     }
 
     const remarks = (document.getElementById("remarks").value || "").trim();
@@ -750,9 +773,8 @@ async function saveToDatabase(source = "package") {
       emf,
 
       payment: { epos, upi, cash },
-
       bankRemit,
-      bankRemitDate, // NEW FIELD (string YYYY-MM-DD)
+      bankRemitDate,
       remarks,
 
       clientSavedAt: new Date().toISOString(),
@@ -781,7 +803,6 @@ async function saveToDatabase(source = "package") {
       }
     });
 
-    // If docId changed during edit (e.g., nationality or date changed), remove old doc
     if (previousDocId && previousDocId !== targetDocId) {
       await firestoreDb.collection("daily_collections").doc(previousDocId).delete().catch(() => {});
     }
@@ -793,10 +814,16 @@ async function saveToDatabase(source = "package") {
       : `Saved record for ${dateVal} (${nationalityLabel(nationality)}).`;
 
     setMessage(source, msg, "ok");
+    if (opts.toastOnSuccess) showToast(msg, "ok");
+
+    return { ok: true, msg, existed, docId: targetDocId };
 
   } catch (err) {
     console.error(err);
-    setMessage(source, err?.message || "Save/Update failed.", "err");
+    const m = err?.message || "Save/Update failed.";
+    setMessage(source, m, "err");
+    if (opts.toastOnError) showToast(m, "err");
+    return { ok: false, msg: m };
   } finally {
     setSavingUI(false);
   }
@@ -832,7 +859,6 @@ function startHistoryListener() {
       statusEl.textContent = `Loaded: ${snap.size} record(s).`;
       renderHistoryTable();
 
-      // If cashbook is currently open, refresh it too
       const activeId = document.querySelector(".tab-content.active")?.id;
       if (activeId === "content-cashbook") renderCashbookMonth(false);
 
@@ -938,7 +964,6 @@ function loadRecordToForm(r) {
 
   document.getElementById("bank-remit").value = r.bankRemit ?? 0;
 
-  // NEW: bank remittance date (default to collection date for older records)
   const remitDateEl = document.getElementById("bank-remit-date");
   if (remitDateEl) remitDateEl.value = (r.bankRemitDate || r.dateStr || "");
 
@@ -1121,23 +1146,18 @@ function openMenu(sectionId) {
   if (dashboard) dashboard.style.display = "none";
   if (backBar) backBar.style.display = "block";
 
-  // Hide all sections and clear active state
   document.querySelectorAll(".tab-content").forEach(content => {
     content.classList.remove("active");
     content.style.display = "none";
   });
 
-  // Show selected section + mark active
   const target = document.getElementById(sectionId);
   if (target) {
     target.style.display = "block";
     target.classList.add("active");
   }
 
-  // Trigger section-specific refresh
-  if (sectionId === "content-cashbook") {
-    renderCashbookMonth(false);
-  }
+  if (sectionId === "content-cashbook") renderCashbookMonth(false);
   if (sectionId === "content-abstract") generateAbstract();
   if (sectionId === "content-history") renderHistoryTable();
 
@@ -1151,7 +1171,6 @@ function goHome() {
   if (dashboard) dashboard.style.display = "block";
   if (backBar) backBar.style.display = "none";
 
-  // Hide all sections and clear active state
   document.querySelectorAll(".tab-content").forEach(content => {
     content.classList.remove("active");
     content.style.display = "none";
@@ -1160,7 +1179,6 @@ function goHome() {
   window.scrollTo(0, 0);
 }
 
-// Keep old "Next" buttons working
 function switchTab(tabName) {
   openMenu("content-" + tabName);
 }
