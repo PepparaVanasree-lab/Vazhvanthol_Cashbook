@@ -54,7 +54,7 @@
   <!-- Main App Screen -->
   <div class="container" id="app-screen">
     <!-- ==========================================
-         HOME DASHBOARD (NEW)
+         HOME DASHBOARD
     ========================================== -->
     <div id="home-dashboard" class="no-print">
       <!-- TOP ACTION BAR (Logout left + Online right) -->
@@ -94,7 +94,8 @@
       </div>
       <div class="edit-actions">
         <button type="button" class="btn-small btn-grey" onclick="cancelEdit()">Cancel Edit</button>
-        <button type="button" class="btn-small btn-print" onclick="switchTab('cashbook')">Go to Save/Update</button>
+        <!-- UPDATED: Save/Update happens via Package tab button -->
+        <button type="button" class="btn-small btn-print" onclick="switchTab('package')">Go to Save/Update</button>
       </div>
     </div>
 
@@ -221,21 +222,88 @@
 
         <div class="grid-2">
           <button type="button" class="btn-grey" onclick="switchTab('package')">&laquo; Back to Package</button>
-          <button type="button" onclick="switchTab('cashbook')">Next: View Cash Book &raquo;</button>
+          <button type="button" onclick="switchTab('cashbook')">Next: Cash Book (Monthly) &raquo;</button>
         </div>
       </div>
 
-      <!-- SECTION: CASH BOOK -->
+      <!-- SECTION: CASH BOOK (MONTHLY) -->
       <div id="content-cashbook" class="tab-content">
-        <div class="preview-container" id="print-section"></div>
+        <!-- Controls (no-print) -->
+        <div class="cashbook-controls no-print">
+          <div class="cashbook-control">
+            <label for="cb-month">Month</label>
+            <select id="cb-month"></select>
+          </div>
 
-        <p id="db-msg" class="db-msg no-print"></p>
+          <div class="cashbook-control">
+            <label for="cb-year">Year</label>
+            <input type="number" id="cb-year" min="2000" max="2100" step="1" inputmode="numeric" placeholder="2026">
+          </div>
 
-        <div class="action-buttons no-print">
-          <button type="button" class="btn-grey" onclick="switchTab('payment')">&laquo; Back to Payment</button>
-          <button type="button" class="btn-print" onclick="window.print()">Print Preview / PDF Print</button>
-          <button type="button" class="btn-save" id="btn-save-db" onclick="saveToDatabase('cashbook')">Save to Database</button>
+          <div class="cashbook-control cashbook-control-actions">
+            <label>&nbsp;</label>
+            <div class="cashbook-btn-row">
+              <button type="button" class="cb-btn cb-btn-load" id="cb-load-btn">LOAD</button>
+              <button type="button" class="cb-btn cb-btn-print" id="cb-print-btn">PDF (Preview &amp; Print)</button>
+            </div>
+          </div>
         </div>
+
+        <!-- Printable sheet -->
+        <div class="cashbook-sheet" id="cashbook-sheet">
+          <div class="cashbook-header">
+            <h3>PEPPARA WILDLIFE SANCTUARY</h3>
+            <h4>CHATHANCODE ECO-DEVELOPMENT COMMITTEE</h4>
+            <h4>VAZHVANTHOL WATERFALLS VISIT</h4>
+            <h4 class="cashbook-title-underline">Cash Book</h4>
+
+            <p class="cashbook-monthline">
+              Month &amp; Year: <span id="cb-month-year-label">-</span>
+            </p>
+          </div>
+
+          <div class="cashbook-table-wrap">
+            <table class="cashbook-table" id="cb-table">
+              <thead>
+                <tr>
+                  <th style="width:140px;">Date</th>
+                  <th>Income</th>
+                  <th>Remitted</th>
+                  <th>Remarks</th>
+                  <th class="no-print" style="width:120px;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="cb-tbody">
+                <tr><td colspan="5" class="muted">Select Month/Year and click LOAD.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="cashbook-summary" id="cb-summary">
+            <div class="cashbook-summary-row">
+              <span>Opening Balance</span>
+              <span id="cb-open">₹0.00</span>
+            </div>
+
+            <div class="cashbook-summary-row">
+              <span>Income on this month</span>
+              <span id="cb-income">₹0.00</span>
+            </div>
+
+            <div class="cashbook-summary-row">
+              <span>Remittance this month</span>
+              <span id="cb-remit">₹0.00</span>
+            </div>
+
+            <div class="cashbook-summary-row cashbook-summary-strong">
+              <span>Closing Balance</span>
+              <span id="cb-close">₹0.00</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Optional message area (kept for compatibility / status) -->
+        <p id="db-msg" class="db-msg no-print"></p>
       </div>
 
       <!-- SECTION: HISTORY -->

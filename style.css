@@ -235,7 +235,7 @@ button:hover{ background-color:#1b5e20; }
 .muted{ color:#666; }
 
 /* ---------------------------
-   Report Preview
+   Report Preview (still used by Monthly Abstract)
 ---------------------------- */
 .preview-container{
   background:#fff;
@@ -243,57 +243,6 @@ button:hover{ background-color:#1b5e20; }
   padding:20px;
   border-radius:5px;
   overflow-x:auto;
-}
-
-.report-header{ text-align:center; margin-bottom:20px; }
-.report-header h3{ margin:0; font-size:18px; color:black; font-weight:bold; }
-.report-header h4{ margin:5px 0; font-size:16px; color:black; }
-.report-header .title-underline{ text-decoration:underline; font-weight:bold; }
-
-.report-table{
-  width:100%;
-  border-collapse:collapse;
-  margin-top:15px;
-  font-size:13px;
-  min-width:700px;
-}
-.report-table th,
-.report-table td{
-  border:1px solid black;
-  padding:6px;
-  text-align:right;
-  color:black;
-}
-.report-table th{
-  background-color:#f2f2f2;
-  text-align:center;
-  font-weight:bold;
-}
-.report-table td:first-child,
-.report-table td:last-child{ text-align:center; }
-
-/* Cashbook abstract small table */
-.abstract-table{
-  width:60%;
-  border-collapse:collapse;
-  margin-top:30px;
-  font-size:14px;
-  min-width:400px;
-}
-.abstract-table th,
-.abstract-table td{
-  border:1px solid black;
-  padding:6px;
-  color:black;
-}
-.abstract-table th{
-  text-align:left;
-  background-color:#f2f2f2;
-  font-weight:bold;
-}
-.abstract-table td:nth-child(2){
-  text-align:right;
-  font-weight:bold;
 }
 
 /* ---------------------------
@@ -428,7 +377,7 @@ button:hover{ background-color:#1b5e20; }
 .dev-name{ color:var(--primary-color); font-weight:800; }
 
 /* ==========================================
-   HOME DASHBOARD STYLES (UPDATED SIMPLE TOP BAR)
+   HOME DASHBOARD STYLES (Top bar + menu)
 ========================================== */
 
 /* Simple single-row top action bar: Logout (left) + Online (right) */
@@ -436,7 +385,7 @@ button:hover{ background-color:#1b5e20; }
   display:flex !important;
   flex-direction:row !important;
   align-items:center;
-  justify-content:space-between;     /* far left + far right */
+  justify-content:space-between;
   flex-wrap:nowrap !important;
 
   width:100%;
@@ -445,7 +394,7 @@ button:hover{ background-color:#1b5e20; }
   gap:12px;
 }
 
-/* HARD override against global button { width:100% } and stacking */
+/* HARD override against global button { width:100% } */
 .top-action-bar button{
   flex:0 0 auto !important;
   width:auto !important;
@@ -457,7 +406,7 @@ button:hover{ background-color:#1b5e20; }
   justify-content:center;
 
   white-space:nowrap;
-  margin-top:0 !important;          /* overrides global margin-top:20px */
+  margin-top:0 !important;
 }
 
 /* Compact Logout button */
@@ -514,7 +463,7 @@ button:hover{ background-color:#1b5e20; }
   cursor:pointer;
   text-align:center;
   width:100%;
-  margin:0;           /* override global button margin-top */
+  margin:0;
   box-shadow:0 4px 6px rgba(0,0,0,0.1);
   transition:transform 0.2s;
 }
@@ -532,7 +481,7 @@ button:hover{ background-color:#1b5e20; }
   color:#333;
   padding:15px;
   border-radius:8px;
-  margin:0 0 20px 0; /* override global margin-top */
+  margin:0 0 20px 0;
   font-size:16px;
   font-weight:900;
   width:100%;
@@ -541,16 +490,172 @@ button:hover{ background-color:#1b5e20; }
 }
 .btn-back:hover{ background-color:#d5d5d5; }
 
+/* ==========================================
+   CASH BOOK (MONTHLY) STYLES
+========================================== */
+.cashbook-controls{
+  display:grid;
+  grid-template-columns: 1fr 1fr 1.6fr;
+  gap:12px;
+  align-items:end;
+  margin-bottom:12px;
+}
+
+.cashbook-control-actions .cashbook-btn-row{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+/* Compact buttons (override global button styles) */
+.cb-btn{
+  width:auto !important;
+  margin-top:0 !important;
+  padding:10px 14px;
+  border-radius:10px;
+  border:none;
+  cursor:pointer;
+  font-size:14px;
+  font-weight:900;
+  line-height:1;
+  white-space:nowrap;
+}
+
+.cb-btn-load{ background:#2E7D32; color:#fff; }
+.cb-btn-load:hover{ background:#1b5e20; }
+
+.cb-btn-print{ background:#1976D2; color:#fff; }
+.cb-btn-print:hover{ background:#1565C0; }
+
+.cashbook-sheet{
+  background:#fff;
+}
+
+.cashbook-header{
+  text-align:center;
+  margin-bottom:12px;
+}
+
+.cashbook-header h3{
+  margin:0;
+  font-size:18px;
+  color:#000;
+  font-weight:900;
+}
+
+.cashbook-header h4{
+  margin:4px 0;
+  font-size:14px;
+  color:#000;
+  font-weight:800;
+}
+
+.cashbook-title-underline{
+  text-decoration:underline;
+  font-weight:900;
+}
+
+.cashbook-monthline{
+  text-align:left;
+  margin:10px 0 0;
+  font-weight:900;
+  color:#000;
+}
+
+.cashbook-table-wrap{
+  overflow:auto;
+  border:1px solid #ddd;
+  border-radius:10px;
+}
+
+.cashbook-table{
+  width:100%;
+  border-collapse:collapse;
+  min-width:720px; /* allows scroll on small screens; print overrides below */
+  font-size:13px;
+  color:#000;
+}
+
+.cashbook-table th,
+.cashbook-table td{
+  border:1px solid #000;
+  padding:8px 8px;
+  vertical-align:top;
+}
+
+.cashbook-table th{
+  background:#f2f2f2;
+  text-align:center;
+  font-weight:900;
+}
+
+.cashbook-table td:nth-child(2),
+.cashbook-table td:nth-child(3){
+  text-align:right;
+  font-weight:900;
+}
+
+.cashbook-table td:nth-child(1){
+  text-align:center;
+  white-space:nowrap;
+}
+
+.cb-edit-btn{
+  width:auto !important;
+  margin-top:0 !important;
+  padding:6px 10px;
+  font-size:12px;
+  border-radius:8px;
+  background:#f59e0b;
+  color:#fff;
+  font-weight:900;
+  cursor:pointer;
+}
+
+.cb-edit-btn:hover{ background:#d97706; }
+
+.cashbook-summary{
+  margin-top:14px;
+  border:1px solid #000;
+  border-radius:10px;
+  padding:12px 14px;
+  max-width:520px;
+}
+
+.cashbook-summary-row{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  padding:6px 0;
+  color:#000;
+  font-weight:800;
+}
+
+.cashbook-summary-strong{
+  border-top:2px solid #000;
+  margin-top:6px;
+  padding-top:10px;
+  font-weight:900;
+}
+
+.cashbook-summary-strong span:last-child{
+  color:#1b5e20;
+  font-size:16px;
+}
+
 /* ---------------------------
    Mobile Responsive
 ---------------------------- */
 @media (max-width:600px){
   .grid-2, .grid-3{ grid-template-columns:1fr; }
   .action-buttons{ flex-direction:column; }
-  .abstract-table{ width:100%; }
 
   .history-head{ flex-direction:column; }
   .history-controls{ grid-template-columns:1fr; }
+
+  .cashbook-controls{
+    grid-template-columns:1fr;
+  }
 }
 
 /* Small screens: slightly tighter top bar */
@@ -595,8 +700,36 @@ button:hover{ background-color:#1b5e20; }
     overflow:visible;
   }
 
-  .report-table th,
-  .abstract-table th,
+  /* Cashbook print optimizations */
+  .cashbook-table-wrap{
+    overflow:visible !important;
+    border:none !important;
+    border-radius:0 !important;
+  }
+
+  .cashbook-table{
+    min-width:0 !important;
+    font-size:12px;
+  }
+
+  .cashbook-table th,
+  .cashbook-table td{
+    padding:6px 6px;
+  }
+
+  .cashbook-summary{
+    border-radius:0;
+    max-width:100%;
+  }
+
+  .cashbook-header h3{ font-size:16px; }
+  .cashbook-header h4{ font-size:13px; }
+
+  .cashbook-table th{
+    -webkit-print-color-adjust:exact;
+    print-color-adjust:exact;
+  }
+
   .abstract-report-table thead th{
     -webkit-print-color-adjust:exact;
     print-color-adjust:exact;

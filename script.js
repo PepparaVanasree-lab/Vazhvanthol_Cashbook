@@ -1,13 +1,13 @@
 /**************************************************************
  * Vazhvanthol Eco Tourism Cash Book
- * Update:
- * 1) Strict upsert docId = `${dateVal}_${nationality}`
- * 2) Save button added on Package Entry + Cashbook
- * 3) Home Dashboard navigation (openMenu/goHome) FIXED
- * 4) AUTO-LOGIN (Remember Me):
- *    - If user logs in with Remember Me checked, next visit bypasses login screen
- *    - Auto-login stays active until user clicks Logout
- *    - Password is NOT stored in localStorage
+ *
+ * Key features:
+ * - Firestore collection: daily_collections
+ * - Doc ID: `${dateVal}_${nationality}` (e.g., 2026-10-22_indian)
+ * - Home dashboard navigation (openMenu/goHome) using .active class
+ * - Remember Me + Auto-login (no password stored)
+ * - History (edit/delete) + Monthly Abstract (FY Apr->Mar)
+ * - NEW: Monthly Cash Book view (table for all days + summary + print)
  **************************************************************/
 
 /* ---------------------------
@@ -37,12 +37,12 @@ const DEFAULT_USERS = {
 };
 
 let users = loadUsers();
-let currentUser = null; // track logged-in user for Change Password + auto-login session
+let currentUser = null;
 
 /* ---------------------------
    EDIT MODE STATE
 ---------------------------- */
-let currentEditDocId = null; // Firestore doc id
+let currentEditDocId = null;
 let historyUnsubscribe = null;
 let historyCache = new Map(); // docId -> data (with _id)
 
@@ -51,6 +51,7 @@ let historyCache = new Map(); // docId -> data (with _id)
 ---------------------------- */
 window.onload = function () {
   initFirebase();
+  initCashbookControls();
 
   // Pre-fill username + remember checkbox
   const remembered = loadRemembered();
@@ -61,18 +62,20 @@ window.onload = function () {
     if (rEl) rEl.checked = true;
   }
 
+  // Login submit
   document.getElementById("login-form").addEventListener("submit", (e) => {
     e.preventDefault();
     login();
   });
 
+  // Hide error on typing
   ["username", "password"].forEach(id => {
     document.getElementById(id).addEventListener("input", () => {
       document.getElementById("login-error").style.display = "none";
     });
   });
 
-  // History actions (event delegation)
+  // History actions (edit/delete)
   document.getElementById("history-tbody").addEventListener("click", async (e) => {
     const btn = e.target.closest("button");
     if (!btn) return;
@@ -93,27 +96,22 @@ window.onload = function () {
     renderHistoryTable();
   });
 
-  // Keep print preview up-to-date (this REQUIRES correct .active class)
+  // Print hook: keep printable content updated
   window.addEventListener("beforeprint", () => {
-    const active = document.querySelector(".tab-content.active")?.id;
-    if (active === "content-cashbook") preparePrintData();
-    if (active === "content-abstract") generateAbstract();
+    const activeId = document.querySelector(".tab-content.active")?.id;
+    if (activeId === "content-cashbook") renderCashbookMonth(false);
+    if (activeId === "content-abstract") generateAbstract();
   });
 
-  // Keep dashboard state clean (app-screen is hidden anyway until login)
+  // Clean default state
   goHome();
 
-  // AUTO-LOGIN: bypass login screen if remembered session exists
+  // AUTO-LOGIN
   if (remembered?.username) {
-    const shouldAutoLogin = (remembered.autoLogin !== false); // backwards compatible default true
+    const shouldAutoLogin = (remembered.autoLogin !== false); // backward compatible default true
     const userStillExists = !!users[remembered.username];
-
-    if (shouldAutoLogin && userStillExists) {
-      autoLoginUser(remembered.username);
-    } else if (shouldAutoLogin && !userStillExists) {
-      // remembered user no longer exists in local users store
-      clearRemembered();
-    }
+    if (shouldAutoLogin && userStillExists) autoLoginUser(remembered.username);
+    else if (shouldAutoLogin && !userStillExists) clearRemembered();
   }
 };
 
@@ -135,39 +133,182 @@ function initFirebase() {
 }
 
 /* ---------------------------
+   CASHBOOK (MONTHLY) INIT
+---------------------------- */
+function initCashbookControls() {
+  const monthSel = document.getElementById("cb-month");
+  const yearInp = document.getElementById("cb-year");
+  const loadBtn = document.getElementById("cb-load-btn");
+  const printBtn = document.getElementById("cb-print-btn");
+  const tbody = document.getElementById("cb-tbody");
+
+  if (!monthSel || !yearInp || !loadBtn || !printBtn || !tbody) return;
+
+  // Populate months 01..12
+  monthSel.innerHTML = Array.from({ length: 12 }, (_, i) => {
+    const m = String(i + 1).padStart(2, "0");
+    return `<option value="${m}">${m}</option>`;
+  }).join("");
+
+  // Defaults: current month/year
+  const now = new Date();
+  monthSel.value = String(now.getMonth() + 1).padStart(2, "0");
+  yearInp.value = String(now.getFullYear());
+
+  loadBtn.addEventListener("click", () => renderCashbookMonth(true));
+  printBtn.addEventListener("click", () => window.print());
+
+  // Edit button handling from monthly cashbook table
+  tbody.addEventListener("click", async (e) => {
+    const btn = e.target.closest("button");
+    if (!btn) return;
+
+    const action = btn.dataset.action;
+    if (action === "edit-doc" && btn.dataset.id) {
+      await startEditFromHistory(btn.dataset.id);
+    }
+
+    if (action === "edit-date" && btn.dataset.date) {
+      openHistoryForDate(btn.dataset.date);
+    }
+  });
+}
+
+function getSelectedCashbookMonthYear() {
+  const monthSel = document.getElementById("cb-month");
+  const yearInp = document.getElementById("cb-year");
+
+  const mm = parseInt(monthSel?.value || "", 10);
+  const yyyy = parseInt(yearInp?.value || "", 10);
+
+  return { mm, yyyy };
+}
+
+/**
+ * Monthly cash book table:
+ * - one row per day
+ * - aggregates Indian + Foreigner records for that date
+ */
+function renderCashbookMonth(showStatusMsg = true) {
+  const msgEl = document.getElementById("db-msg");
+
+  const { mm, yyyy } = getSelectedCashbookMonthYear();
+  if (!mm || !yyyy || yyyy < 2000 || yyyy > 2100) {
+    if (msgEl) {
+      msgEl.textContent = "Please select a valid Month and Year.";
+      msgEl.classList.remove("ok");
+      msgEl.classList.add("err");
+    }
+    return;
+  }
+
+  const monthIndex = mm - 1; // 0-based
+  const daysInMonth = new Date(yyyy, mm, 0).getDate(); // mm here is 1-based, day 0 gives last day of previous month
+
+  const monthLabel = new Date(yyyy, monthIndex, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  const monthYearLabelEl = document.getElementById("cb-month-year-label");
+  if (monthYearLabelEl) monthYearLabelEl.textContent = monthLabel;
+
+  // Index records by dateStr (YYYY-MM-DD)
+  const byDate = new Map();
+  for (const r of historyCache.values()) {
+    if (!r?.dateStr) continue;
+    if (!byDate.has(r.dateStr)) byDate.set(r.dateStr, []);
+    byDate.get(r.dateStr).push(r);
+  }
+
+  let totalIncome = 0;
+  let totalRemit = 0;
+
+  let rowsHtml = "";
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dd = String(d).padStart(2, "0");
+    const mmStr = String(mm).padStart(2, "0");
+    const dateStr = `${yyyy}-${mmStr}-${dd}`;
+
+    const list = byDate.get(dateStr) || [];
+
+    const dayIncome = list.reduce((sum, x) => sum + Number(x.income || 0), 0);
+    const dayRemit = list.reduce((sum, x) => sum + Number(x.bankRemit || 0), 0);
+
+    const remarksCombined = list
+      .map(x => (x.remarks || "").trim())
+      .filter(Boolean)
+      .join(" | ");
+
+    const hasRecord = list.length > 0;
+
+    if (hasRecord) {
+      totalIncome += dayIncome;
+      totalRemit += dayRemit;
+    }
+
+    let actionCell = "";
+    if (hasRecord) {
+      if (list.length === 1) {
+        actionCell = `
+          <button type="button"
+                  class="cb-edit-btn"
+                  data-action="edit-doc"
+                  data-id="${escapeHtml(list[0]._id)}">Edit</button>`;
+      } else {
+        // two records exist (Indian + Foreigner): open History filtered by date
+        actionCell = `
+          <button type="button"
+                  class="cb-edit-btn"
+                  data-action="edit-date"
+                  data-date="${escapeHtml(dateStr)}">Edit</button>`;
+      }
+    }
+
+    rowsHtml += `
+      <tr>
+        <td>${formatDDMMYYYYSlash(parseLocalYMD(dateStr))}</td>
+        <td>${hasRecord ? formatNumber2(dayIncome) : "-"}</td>
+        <td>${hasRecord ? formatNumber2(dayRemit) : "-"}</td>
+        <td>${hasRecord ? (remarksCombined || "-") : "-"}</td>
+        <td class="no-print" style="text-align:center;">${actionCell}</td>
+      </tr>
+    `;
+  }
+
+  const tbody = document.getElementById("cb-tbody");
+  if (tbody) {
+    tbody.innerHTML = rowsHtml || `<tr><td colspan="5" class="muted">No rows.</td></tr>`;
+  }
+
+  // Summary
+  const opening = 0;
+  const closing = opening + totalIncome - totalRemit;
+
+  setText("cb-open", `₹${formatNumber2(opening)}`);
+  setText("cb-income", `₹${formatNumber2(totalIncome)}`);
+  setText("cb-remit", `₹${formatNumber2(totalRemit)}`);
+  setText("cb-close", `₹${formatNumber2(closing)}`);
+
+  // Status message (optional)
+  if (msgEl && showStatusMsg) {
+    msgEl.textContent = `Cash Book loaded for ${monthLabel}.`;
+    msgEl.classList.remove("err");
+    msgEl.classList.add("ok");
+  }
+}
+
+/* ---------------------------
    SMALL UI HELPERS
 ---------------------------- */
-function getMsgEl(source) {
-  if (source === "package") return document.getElementById("pkg-msg");
-  return document.getElementById("db-msg");
+function setText(id, text) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = text;
 }
 
-function clearMessages() {
-  const a = document.getElementById("pkg-msg");
-  const b = document.getElementById("db-msg");
-  if (a) { a.textContent = ""; a.classList.remove("ok", "err"); }
-  if (b) { b.textContent = ""; b.classList.remove("ok", "err"); }
-}
-
-function setMessage(source, text, kind) {
-  const el = getMsgEl(source);
-  if (!el) return;
-  el.textContent = text || "";
-  el.classList.remove("ok", "err");
-  if (kind) el.classList.add(kind);
-}
-
-function setSavingUI(isSaving, label) {
-  const btnTab1 = document.getElementById("btn-save-db-tab1");
-  const btnTab3 = document.getElementById("btn-save-db");
-
-  [btnTab1, btnTab3].forEach(btn => {
-    if (!btn) return;
-    btn.disabled = isSaving;
-    if (isSaving && label) btn.textContent = label;
-  });
-
-  if (!isSaving) updateSaveButtonLabel();
+function escapeHtml(str) {
+  return String(str || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
 /* ---------------------------
@@ -206,7 +347,7 @@ function loadRemembered() {
 }
 
 function saveRemembered(username) {
-  // auto-login session (password NOT stored)
+  // password NOT stored
   localStorage.setItem(REMEMBER_LS_KEY, JSON.stringify({ username, autoLogin: true }));
 }
 
@@ -253,9 +394,7 @@ function login() {
     document.getElementById("date").valueAsDate = new Date();
     calculateFees();
 
-    // Show dashboard first (new UI)
     goHome();
-
     startHistoryListener();
   } else {
     document.getElementById("login-error").style.display = "block";
@@ -263,9 +402,7 @@ function login() {
 }
 
 function logout() {
-  // IMPORTANT: stops auto-login until user logs in again with Remember Me
   clearRemembered();
-
   currentUser = null;
 
   document.getElementById("app-screen").style.display = "none";
@@ -275,7 +412,6 @@ function logout() {
   stopHistoryListener();
   cancelEdit(true);
 
-  // reset dashboard state
   goHome();
 }
 
@@ -317,30 +453,12 @@ function resetPassword() {
   }
 }
 
-/* Change password while logged-in (from dashboard button) */
-function changePassword() {
-  if (!currentUser) {
-    alert("Not logged in.");
-    return;
-  }
-
-  const newPass = prompt(`Change Password for "${currentUser}"\nEnter new password (min 3 chars):`, "");
-  if (newPass === null) return; // cancelled
-  const p = (newPass || "").trim();
-  if (p.length < 3) {
-    alert("Password must be at least 3 characters.");
-    return;
-  }
-
-  users[currentUser] = p;
-  saveUsers();
-  alert("Password updated successfully.");
-}
-
 /* ---------------------------
-   DATE HELPERS
+   DATE + FORMAT HELPERS
 ---------------------------- */
-function parseLocalYMD(ymd) { return ymd ? new Date(`${ymd}T00:00:00`) : null; }
+function parseLocalYMD(ymd) {
+  return ymd ? new Date(`${ymd}T00:00:00`) : null;
+}
 
 function formatDDMMYYYY(dateObj) {
   const day = String(dateObj.getDate()).padStart(2, "0");
@@ -349,12 +467,25 @@ function formatDDMMYYYY(dateObj) {
   return `${day}-${month}-${year}`;
 }
 
+function formatDDMMYYYYSlash(dateObj) {
+  if (!dateObj) return "-";
+  const day = String(dateObj.getDate()).padStart(2, "0");
+  const month = String(dateObj.getMonth() + 1).padStart(2, "0");
+  const year = dateObj.getFullYear();
+  return `${day}/${month}/${year}`;
+}
+
 function displayDateFromDateStr(dateStr) {
   const d = parseLocalYMD(dateStr);
   return d ? formatDDMMYYYY(d) : (dateStr || "-");
 }
 
 function nationalityLabel(n) { return n === "foreigner" ? "Foreigner" : "Indian"; }
+
+function formatNumber2(n) {
+  const num = Number(n || 0);
+  return num.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
 
 /* ---------------------------
    CALCULATIONS (VERIFIED)
@@ -418,99 +549,36 @@ function calculateFees() {
 }
 
 /* ---------------------------
-   TAB 3: PRINT PREVIEW
----------------------------- */
-function preparePrintData() {
-  calculateFees();
-
-  const dateVal = document.getElementById("date").value;
-  const dateObj = parseLocalYMD(dateVal);
-
-  let monthYear = "";
-  let formattedDate = "";
-
-  if (dateObj) {
-    monthYear = dateObj.toLocaleDateString("en-US", { month: "long", year: "numeric" });
-    formattedDate = formatDDMMYYYY(dateObj);
-  }
-
-  const income = Number(document.getElementById("calc-income").value || 0).toFixed(2);
-  const guide = Number(document.getElementById("calc-guide").value || 0).toFixed(2);
-  const rr = Number(document.getElementById("calc-rr").value || 0).toFixed(2);
-  const edc = Number(document.getElementById("calc-edc").value || 0).toFixed(2);
-
-  const epos = Number(document.getElementById("pay-epos").value || 0).toFixed(2);
-  const upi = Number(document.getElementById("pay-upi").value || 0).toFixed(2);
-  const cash = Number(document.getElementById("pay-cash").value || 0).toFixed(2);
-  const remitted = Number(document.getElementById("bank-remit").value || 0).toFixed(2);
-
-  const children = Math.max(0, parseInt(document.getElementById("children").value, 10) || 0);
-  let remarks = (document.getElementById("remarks").value || "").trim();
-  if (children > 0) remarks = remarks ? `${remarks} | Children: ${children}` : `Children: ${children}`;
-
-  const eposUpiTotal = (Number(epos) + Number(upi)).toFixed(2);
-  const closingBalance = (Number(cash) - Number(remitted)).toFixed(2);
-
-  document.getElementById("print-section").innerHTML = `
-    <div class="report-header">
-      <h3>PEPPARA WILDLIFE SANCTUARY</h3>
-      <h4>CHATHANCODE ECO-DEVELOPMENT COMMITTEE</h4>
-      <h4>VAZHVANTHOL WATERFALLS VISIT</h4>
-      <h4 class="title-underline">Daily Report</h4>
-      <p style="text-align:left; font-weight:bold; margin-top:15px;">Month & Year: ${monthYear}</p>
-    </div>
-
-    <table class="report-table">
-      <thead>
-        <tr>
-          <th rowspan="2">Date</th>
-          <th rowspan="2">Income</th>
-          <th colspan="3">Expenditure</th>
-          <th colspan="3">Amount received</th>
-          <th rowspan="2">Amount<br>remitted</th>
-          <th rowspan="2">Remarks</th>
-        </tr>
-        <tr>
-          <th>Guide fees</th>
-          <th>Sanctuary</th>
-          <th>EDC</th>
-          <th>EPOS</th>
-          <th>UPI</th>
-          <th>Cash</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>${formattedDate}</td>
-          <td>${income}</td>
-          <td>${guide}</td>
-          <td>${rr}</td>
-          <td>${edc}</td>
-          <td>${epos}</td>
-          <td>${upi}</td>
-          <td>${cash}</td>
-          <td>${remitted}</td>
-          <td style="text-align:center;">${remarks}</td>
-        </tr>
-      </tbody>
-    </table>
-
-    <table class="abstract-table">
-      <tr><th colspan="2">ABSTRACT</th></tr>
-      <tr><td>Opening Balance</td><td>0.00</td></tr>
-      <tr><td>Income on this month (B)</td><td>${income}</td></tr>
-      <tr><td>Amount received via EPOS & UPI (F+G)</td><td>${eposUpiTotal}</td></tr>
-      <tr><td>Amount received in Cash (H)</td><td>${cash}</td></tr>
-      <tr><td>Amount remitted to bank (I)</td><td>${remitted}</td></tr>
-      <tr><td>Closing Balance</td><td>${closingBalance}</td></tr>
-    </table>
-  `;
-}
-
-/* ---------------------------
    SAVE / UPDATE (STRICT UPSERT)
 ---------------------------- */
-async function saveToDatabase(source = "cashbook") {
+function clearMessages() {
+  const a = document.getElementById("pkg-msg");
+  const b = document.getElementById("db-msg");
+  if (a) { a.textContent = ""; a.classList.remove("ok", "err"); }
+  if (b) { b.textContent = ""; b.classList.remove("ok", "err"); }
+}
+
+function setMessage(source, text, kind) {
+  const el = (source === "package")
+    ? document.getElementById("pkg-msg")
+    : document.getElementById("db-msg");
+
+  if (!el) return;
+  el.textContent = text || "";
+  el.classList.remove("ok", "err");
+  if (kind) el.classList.add(kind);
+}
+
+function setSavingUI(isSaving, label) {
+  const btnTab1 = document.getElementById("btn-save-db-tab1");
+  if (btnTab1) {
+    btnTab1.disabled = isSaving;
+    if (isSaving && label) btnTab1.textContent = label;
+  }
+  if (!isSaving) updateSaveButtonLabel();
+}
+
+async function saveToDatabase(source = "package") {
   clearMessages();
 
   if (!firestoreDb) {
@@ -590,6 +658,7 @@ async function saveToDatabase(source = "cashbook") {
     setSavingUI(true, previousDocId ? "Updating..." : "Saving...");
 
     let existed = false;
+
     await firestoreDb.runTransaction(async (tx) => {
       const snap = await tx.get(targetRef);
       existed = snap.exists;
@@ -604,6 +673,7 @@ async function saveToDatabase(source = "cashbook") {
       }
     });
 
+    // If docId changed during edit (e.g., nationality or date changed), remove old doc
     if (previousDocId && previousDocId !== targetDocId) {
       await firestoreDb.collection("daily_collections").doc(previousDocId).delete().catch(() => {});
     }
@@ -650,13 +720,19 @@ function startHistoryListener() {
         const data = doc.data() || {};
         historyCache.set(doc.id, { ...data, _id: doc.id });
       });
+
       statusEl.textContent = `Loaded: ${snap.size} record(s).`;
       renderHistoryTable();
+
+      // If cashbook is currently open, refresh it too
+      const activeId = document.querySelector(".tab-content.active")?.id;
+      if (activeId === "content-cashbook") renderCashbookMonth(false);
+
     }, (err) => {
       console.error(err);
       statusEl.textContent = `Error loading records: ${err.message}`;
       document.getElementById("history-tbody").innerHTML =
-        `<tr><td colspan="4" class="muted">Error: ${err.message}</td></tr>`;
+        `<tr><td colspan="4" class="muted">Error: ${escapeHtml(err.message)}</td></tr>`;
     });
 }
 
@@ -703,13 +779,13 @@ function renderHistoryTable() {
 
     return `
       <tr>
-        <td>${dateLabel}</td>
-        <td>${natLabel}</td>
-        <td>₹${income}</td>
+        <td>${escapeHtml(dateLabel)}</td>
+        <td>${escapeHtml(natLabel)}</td>
+        <td>₹${escapeHtml(income)}</td>
         <td>
           <div class="history-actions-cell">
-            <button type="button" class="btn-small btn-edit" data-action="edit" data-id="${id}">Edit</button>
-            <button type="button" class="btn-small btn-delete" data-action="delete" data-id="${id}">Delete</button>
+            <button type="button" class="btn-small btn-edit" data-action="edit" data-id="${escapeHtml(id)}">Edit</button>
+            <button type="button" class="btn-small btn-delete" data-action="delete" data-id="${escapeHtml(id)}">Delete</button>
           </div>
         </td>
       </tr>
@@ -756,7 +832,6 @@ function loadRecordToForm(r) {
   document.getElementById("remarks").value = r.remarks ?? "";
 
   calculateFees();
-  preparePrintData();
 }
 
 async function deleteRecordFromHistory(docId) {
@@ -798,9 +873,7 @@ function hideEditBanner() {
 function updateSaveButtonLabel() {
   const label = currentEditDocId ? "Update Record" : "Save to Database";
   const btnTab1 = document.getElementById("btn-save-db-tab1");
-  const btnTab3 = document.getElementById("btn-save-db");
   if (btnTab1) btnTab1.textContent = label;
-  if (btnTab3) btnTab3.textContent = label;
 }
 
 function cancelEdit(silent = false) {
@@ -811,7 +884,7 @@ function cancelEdit(silent = false) {
 }
 
 /* ---------------------------
-   MONTHLY ABSTRACT
+   MONTHLY ABSTRACT (FY Apr->Mar)
 ---------------------------- */
 function generateAbstract() {
   const fy = document.getElementById("fy-select").value;
@@ -926,8 +999,7 @@ function generateAbstract() {
 }
 
 /* ==========================================
-   HOME DASHBOARD NAVIGATION LOGIC (FIXED)
-   - Updates .active (required for print CSS)
+   HOME DASHBOARD NAVIGATION LOGIC
 ========================================== */
 function openMenu(sectionId) {
   const dashboard = document.getElementById("home-dashboard");
@@ -942,7 +1014,7 @@ function openMenu(sectionId) {
     content.style.display = "none";
   });
 
-  // Show selected section + mark active (CRITICAL for print)
+  // Show selected section + mark active
   const target = document.getElementById(sectionId);
   if (target) {
     target.style.display = "block";
@@ -950,7 +1022,10 @@ function openMenu(sectionId) {
   }
 
   // Trigger section-specific refresh
-  if (sectionId === "content-cashbook") preparePrintData();
+  if (sectionId === "content-cashbook") {
+    // Do not auto-print; just render current month selection
+    renderCashbookMonth(false);
+  }
   if (sectionId === "content-abstract") generateAbstract();
   if (sectionId === "content-history") renderHistoryTable();
 
@@ -976,4 +1051,18 @@ function goHome() {
 // Keep old "Next" buttons working
 function switchTab(tabName) {
   openMenu("content-" + tabName);
+}
+
+/* ---------------------------
+   Cashbook helper: jump to History filtered by date
+---------------------------- */
+function openHistoryForDate(dateStr) {
+  const dateInput = document.getElementById("history-search-date");
+  const natSelect = document.getElementById("history-filter-nat");
+
+  if (dateInput) dateInput.value = dateStr;
+  if (natSelect) natSelect.value = "all";
+
+  openMenu("content-history");
+  renderHistoryTable();
 }
