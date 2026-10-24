@@ -8,10 +8,14 @@
  * 4) Wildlife Week (Oct 2–8): Sanctuary fee FREE (RR=0) and Income reduced by RR
  * 5) Custom Guide Count override (is-custom-guides + custom-guides-count)
  *
- * Optional additions (now included):
+ * Optional additions (included):
  * A) Payment mismatch warning toast (EPOS+UPI+Cash != Income) on save/next (non-blocking)
  * B) Auto-set Bank Remittance Date to selected Date when Bank Remit amount > 0
  *    (unless user manually selected a different remittance date)
+ *
+ * Fix in this update:
+ * - EDC Share formula corrected to include extra persons @ ₹5 per person:
+ *   edc = (count5*25) + (count10*50) + (extraPersons*5)
  *
  * Existing preserved features:
  * - Firebase Firestore sync (v9 compat CDN)
@@ -927,14 +931,17 @@ function calculateFees() {
   // Base calculations
   let income = 0, rr = 0, edc = 0;
 
+  // FIXED EDC FORMULA: includes extraPersons * 5
+  const edcBase = (count5 * 25) + (count10 * 50) + (extraPersons * 5);
+
   if (nationality === "indian") {
     income = (count5 * 1000) + (count10 * 2000) + (extraPersons * 200);
     rr = (count5 * 150) + (count10 * 300) + (extraPersons * 30);
-    edc = (count5 * 25) + (count10 * 50) + (extraPersons * 5);
+    edc = edcBase;
   } else if (nationality === "foreigner") {
     income = (count5 * 2000) + (count10 * 4000) + (extraPersons * 400);
     rr = (count5 * 525) + (count10 * 1050) + (extraPersons * 105);
-    edc = (count5 * 25) + (count10 * 50) + (extraPersons * 5);
+    edc = edcBase;
   }
 
   // Requirement #4: Wildlife Week exemption (Oct 2-8): RR = 0 and Income reduced by RR share
