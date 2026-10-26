@@ -1,0 +1,66 @@
+/* ---------------------------
+   Forms / layout helpers
+---------------------------- */
+.form-group{ margin-bottom:15px; }
+
+label{
+  display:block;
+  font-weight:600;
+  margin-bottom:5px;
+}
+
+input[type="text"],
+input[type="number"],
+input[type="date"],
+input[type="password"],
+select{
+  width:100%;
+  padding:10px;
+  border:1px solid var(--border-color);
+  border-radius:5px;
+  font-size:16px;
+}
+
+.grid-2{ display:grid; grid-template-columns:1fr 1fr; gap:15px; }
+.grid-3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:15px; }
+
+.readonly-field{
+  background-color:#e8f5e9;
+  font-weight:bold;
+  color:#1b5e20;
+}
+
+.section-title{
+  margin-top:30px;
+  margin-bottom:15px;
+  border-bottom:2px solid var(--primary-color);
+  padding-bottom:5px;
+  font-weight:bold;
+  color:var(--primary-color);
+}
+
+.action-buttons{
+  display:flex;
+  gap:15px;
+  margin-top:30px;
+  border-top:1px solid #ccc;
+  padding-top:20px;
+}
+
+/* ---------------------------
+   Report Preview (Monthly Abstract)
+---------------------------- */
+.preview-container{
+  background:#fff;
+  border:1px solid #ccc;
+  padding:20px;
+  border-radius:5px;
+  overflow-x:auto;
+}
+
+/* Common table wrapper */
+.table-wrap{
+  overflow:auto;
+  border:1px solid #ddd;
+  border-radius:10px;
+}

@@ -1,0 +1,51 @@
+:root{
+  --primary-color:#2E7D32;
+  --bg-color:#f4f7f6;
+  --card-bg:#ffffff;
+  --text-color:#333333;
+  --border-color:#cccccc;
+}
+
+*{
+  box-sizing:border-box;
+  font-family:'Anek Malayalam', sans-serif;
+}
+
+body{
+  background-color:var(--bg-color);
+  color:var(--text-color);
+  margin:0;
+  padding:20px;
+  display:flex;
+  justify-content:center;
+}
+
+/* App container */
+.container{
+  background-color:var(--card-bg);
+  max-width:900px;
+  width:100%;
+  padding:30px;
+  border-radius:10px;
+  box-shadow:0 4px 8px rgba(0,0,0,0.1);
+  margin-top:26px;
+}
+
+h2, h3{
+  text-align:center;
+  color:var(--primary-color);
+}
+
+.app-title{ margin-bottom:5px; }
+.app-subtitle{ margin-top:0; color:#555; }
+
+/* Default screen states */
+#app-screen{ display:none; }
+
+/* ---------------------------
+   Generic sections (used by dashboard navigation)
+---------------------------- */
+.tab-content{ display:none; }
+.tab-content.active{ display:block; }
+
+.muted{ color:#666; }

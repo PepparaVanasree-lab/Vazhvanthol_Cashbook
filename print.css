@@ -1,0 +1,212 @@
+/* =========================================================
+   PRINT (A4 PORTRAIT)
+========================================================= */
+@page{
+  size: A4 portrait;
+  margin: 5mm;
+}
+
+@media print{
+  #home-dashboard,
+  #back-bar,
+  .cashbook-controls,
+  .no-print,
+  button,
+  input,
+  select,
+  textarea{
+    display:none !important;
+    visibility:hidden !important;
+  }
+
+  .top-action-bar,
+  .menu-buttons,
+  .developer-credit,
+  .edit-banner,
+  .toast{
+    display:none !important;
+    visibility:hidden !important;
+  }
+
+  html, body{
+    background:#fff !important;
+    margin:0 !important;
+    padding:0 !important;
+    width:100% !important;
+    height:auto !important;
+  }
+
+  body{
+    display:block !important;
+    -webkit-print-color-adjust:exact;
+    print-color-adjust:exact;
+  }
+
+  #login-screen{ display:none !important; }
+  #app-screen{ display:block !important; }
+
+  .container{
+    box-shadow:none !important;
+    border:none !important;
+    border-radius:0 !important;
+    margin:0 !important;
+    padding:0 !important;
+    max-width:none !important;
+    width:100% !important;
+  }
+
+  .tab-content{ display:none !important; }
+  .tab-content.active{ display:block !important; }
+
+  #content-cashbook{ margin:0 !important; padding:0 !important; }
+
+  #content-cashbook .cashbook-header{
+    margin:0 0 2mm 0 !important;
+  }
+  #content-cashbook .cashbook-header h3{
+    margin:0 !important;
+    font-size:12px !important;
+    color:#000 !important;
+  }
+  #content-cashbook .cashbook-header h4{
+    margin:1px 0 !important;
+    font-size:10px !important;
+    color:#000 !important;
+  }
+  #content-cashbook .cashbook-monthline{
+    margin:1.5mm 0 0 !important;
+    font-size:10px !important;
+    color:#000 !important;
+  }
+
+  #content-cashbook .col-code{
+    display:none !important;
+  }
+
+  #content-cashbook .cashbook-table-wrap{
+    overflow:visible !important;
+    border:none !important;
+    border-radius:0 !important;
+  }
+
+  #content-cashbook .cashbook-table{
+    width:100% !important;
+    min-width:0 !important;
+    table-layout:fixed !important;
+    border-collapse:collapse !important;
+
+    font-size:8.3px !important;
+    line-height:1.1 !important;
+    color:#000 !important;
+  }
+
+  #content-cashbook .cashbook-table th,
+  #content-cashbook .cashbook-table td{
+    padding:2px 3px !important;
+    border:1px solid #000 !important;
+    vertical-align:top !important;
+  }
+
+  #content-cashbook .cashbook-table th{
+    font-size:7.5px !important;
+    font-weight:900 !important;
+    text-align:center !important;
+
+    white-space:normal !important;
+    word-break:normal !important;
+    overflow-wrap:break-word !important;
+    hyphens:none !important;
+
+    background:#f2f2f2 !important;
+    -webkit-print-color-adjust:exact;
+    print-color-adjust:exact;
+  }
+
+  #content-cashbook .cashbook-table .no-print{
+    display:none !important;
+    visibility:hidden !important;
+  }
+
+  #content-cashbook .cashbook-table thead tr:nth-child(1) th:nth-child(1){ width:9% !important; }
+  #content-cashbook .cashbook-table thead tr:nth-child(1) th:nth-child(5){ width:9% !important; }
+  #content-cashbook .cashbook-table thead tr:nth-child(1) th:nth-child(6){ width:19% !important; }
+
+  #content-cashbook .cashbook-table thead tr:nth-child(2) th{
+    width:9% !important;
+  }
+
+  #content-cashbook .cashbook-table tbody td:nth-child(1),
+  #content-cashbook .cashbook-table tbody td:nth-child(2),
+  #content-cashbook .cashbook-table tbody td:nth-child(3),
+  #content-cashbook .cashbook-table tbody td:nth-child(4),
+  #content-cashbook .cashbook-table tbody td:nth-child(5),
+  #content-cashbook .cashbook-table tbody td:nth-child(6),
+  #content-cashbook .cashbook-table tbody td:nth-child(7),
+  #content-cashbook .cashbook-table tbody td:nth-child(8),
+  #content-cashbook .cashbook-table tbody td:nth-child(9){
+    white-space:nowrap !important;
+  }
+
+  #content-cashbook .cashbook-table tbody td:nth-child(10){
+    white-space:normal !important;
+    word-break:normal !important;
+    overflow-wrap:break-word !important;
+  }
+
+  #content-cashbook .cashbook-table tbody td:nth-child(2),
+  #content-cashbook .cashbook-table tbody td:nth-child(3),
+  #content-cashbook .cashbook-table tbody td:nth-child(4),
+  #content-cashbook .cashbook-table tbody td:nth-child(5),
+  #content-cashbook .cashbook-table tbody td:nth-child(6),
+  #content-cashbook .cashbook-table tbody td:nth-child(7),
+  #content-cashbook .cashbook-table tbody td:nth-child(8),
+  #content-cashbook .cashbook-table tbody td:nth-child(9){
+    text-align:right !important;
+  }
+
+  #content-cashbook .cashbook-table thead{
+    display:table-header-group !important;
+  }
+
+  #content-cashbook .cashbook-table tr{
+    break-inside:avoid !important;
+    page-break-inside:avoid !important;
+  }
+
+  #content-cashbook .cashbook-total-row td{
+    font-weight:900 !important;
+    border-top:2px solid #000 !important;
+    background:#f9fafb !important;
+    -webkit-print-color-adjust:exact;
+    print-color-adjust:exact;
+  }
+
+  /* ✅ FIX: abstract box should NOT stretch across the page */
+  #content-cashbook .cashbook-abstract-wrap{
+    margin-top:2mm !important;
+    border-radius:0 !important;
+
+    display:inline-block !important;
+    width:max-content !important;
+    max-width:100% !important;
+
+    break-inside:avoid !important;
+    page-break-inside:avoid !important;
+  }
+
+  #content-cashbook .cashbook-abstract-table{
+    font-size:9px !important;
+    line-height:1.15 !important;
+  }
+
+  #content-cashbook .cashbook-abstract-table th,
+  #content-cashbook .cashbook-abstract-table td{
+    padding:2px 4px !important;
+  }
+
+  #content-cashbook .cashbook-abstract-table .cb-closing-row td{
+    background:#fff59d !important;
+    -webkit-print-color-adjust:exact !important;
+    print-color-adjust:exact !important;
+  }
+}

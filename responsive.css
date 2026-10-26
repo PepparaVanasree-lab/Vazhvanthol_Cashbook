@@ -1,0 +1,25 @@
+/* A4-like feel on desktop */
+@media (min-width:980px){
+  #app-screen.container{
+    max-width:210mm;
+    min-height:297mm;
+  }
+}
+
+/* ---------------------------
+   Mobile Responsive
+---------------------------- */
+@media (max-width:600px){
+  .grid-2, .grid-3{ grid-template-columns:1fr; }
+  .action-buttons{ flex-direction:column; }
+
+  .history-head{ flex-direction:column; }
+  .history-controls{ grid-template-columns:1fr; }
+
+  .cashbook-controls{ grid-template-columns:1fr; }
+}
+
+@media (max-width:380px){
+  .btn-logout-compact{ padding:8px 12px; font-size:14px; }
+  .status-badge{ padding:6px 10px; font-size:13px; }
+}

@@ -1,0 +1,198 @@
+/* ==========================================
+   CASH BOOK (MONTHLY - DETAILED) STYLES
+========================================== */
+.cashbook-controls{
+  display:grid;
+  grid-template-columns: 1fr 1fr 1.8fr;
+  gap:12px;
+  align-items:end;
+  margin-bottom:12px;
+}
+
+.cashbook-control-actions .cashbook-btn-row{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+.cb-btn{
+  width:auto !important;
+  margin-top:0 !important;
+  padding:10px 14px;
+  border-radius:10px;
+  border:none;
+  cursor:pointer;
+  font-size:14px;
+  font-weight:900;
+  line-height:1;
+  white-space:nowrap;
+}
+
+.cb-btn-load{ background:#2E7D32; color:#fff; }
+.cb-btn-load:hover{ background:#1b5e20; }
+
+.cb-btn-print{ background:#1976D2; color:#fff; }
+.cb-btn-print:hover{ background:#1565C0; }
+
+.cashbook-sheet{ background:#fff; }
+
+.cashbook-header{
+  text-align:center;
+  margin-bottom:12px;
+}
+
+.cashbook-header h3{
+  margin:0;
+  font-size:18px;
+  color:#000;
+  font-weight:900;
+}
+
+.cashbook-header h4{
+  margin:4px 0;
+  font-size:14px;
+  color:#000;
+  font-weight:800;
+}
+
+.cashbook-title-underline{
+  text-decoration:underline;
+  font-weight:900;
+}
+
+.cashbook-monthline{
+  text-align:left;
+  margin:10px 0 0;
+  font-weight:900;
+  color:#000;
+}
+
+.col-code{
+  font-weight:800;
+  font-size:11px;
+  color:#333;
+}
+
+.cashbook-table-wrap{
+  overflow-x:auto;
+  border:1px solid #ddd;
+  border-radius:10px;
+}
+
+.cashbook-table{
+  width:100%;
+  border-collapse:collapse;
+  min-width:1300px;
+  font-size:12px;
+  color:#000;
+}
+
+.cashbook-table th,
+.cashbook-table td{
+  border:1px solid #000;
+  padding:7px 6px;
+  vertical-align:top;
+}
+
+.cashbook-table th{
+  background:#f2f2f2;
+  text-align:center;
+  font-weight:900;
+}
+
+.cashbook-table td{
+  background:#fff;
+}
+
+.cashbook-table td:nth-child(2),
+.cashbook-table td:nth-child(3),
+.cashbook-table td:nth-child(4),
+.cashbook-table td:nth-child(5),
+.cashbook-table td:nth-child(6),
+.cashbook-table td:nth-child(7),
+.cashbook-table td:nth-child(8),
+.cashbook-table td:nth-child(9){
+  text-align:right;
+  font-weight:900;
+}
+
+.cashbook-table td:nth-child(1){
+  text-align:center;
+  white-space:nowrap;
+  font-weight:800;
+}
+
+.cashbook-table td:nth-child(10){
+  text-align:left;
+  font-weight:700;
+}
+
+.cashbook-total-row td{
+  background:#f9fafb;
+  font-weight:900;
+  border-top:2px solid #000;
+}
+
+.cb-edit-btn{
+  width:auto !important;
+  margin-top:0 !important;
+  padding:6px 10px;
+  font-size:12px;
+  border-radius:8px;
+  background:#f59e0b;
+  color:#fff;
+  font-weight:900;
+  cursor:pointer;
+  border:none;
+}
+.cb-edit-btn:hover{ background:#d97706; }
+
+/* ==========================================
+   CASH BOOK ABSTRACT TABLE
+========================================== */
+.cashbook-abstract-wrap{
+  margin-top:14px;
+  border:1px solid #000;
+  border-radius:10px;
+  overflow:hidden;
+  max-width:560px;
+}
+
+.cashbook-abstract-table{
+  width:100%;
+  border-collapse:collapse;
+  color:#000;
+  background:#fff;
+}
+
+.cashbook-abstract-table th,
+.cashbook-abstract-table td{
+  border:1px solid #000;
+  padding:8px 10px;
+}
+
+.cashbook-abstract-table thead th{
+  background:#f2f2f2;
+  font-weight:900;
+  text-align:center;
+}
+
+.cashbook-abstract-table td.label{
+  font-weight:800;
+}
+
+.cashbook-abstract-table td.value{
+  text-align:right;
+  font-weight:900;
+  white-space:nowrap;
+  width:170px;
+}
+
+.cashbook-abstract-table .cb-closing-row td{
+  font-weight:900;
+  background:#fff59d;
+}
+
+.cashbook-abstract-table .cb-closing-row td.value{
+  color:#1b5e20;
+}
