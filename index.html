@@ -476,10 +476,24 @@
   <!-- Non-blocking toast -->
   <div id="toast" class="toast no-print" role="status" aria-live="polite"></div>
 
-  <!-- Firebase v9 compat -->
+      <!-- Firebase v9 compat -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
-  <script src="script.js"></script>
+  <!-- Split App Scripts (load order matters) -->
+  <script src="app-state.js"></script>
+  <script src="utils.js"></script>
+  <script src="toast.js"></script>
+  <script src="github-last-update.js"></script>
+  <script src="firebase-init.js"></script>
+
+  <script src="navigation.js"></script>
+  <script src="calculations.js"></script>
+  <script src="cashbook.js"></script>
+  <script src="history.js"></script>
+  <script src="abstract.js"></script>
+  <script src="save.js"></script>
+  <script src="auth.js"></script>
+  <script src="main.js"></script>
 </body>
 </html>
